@@ -122,7 +122,7 @@
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 11일 14:02 기준</span><br>
+    <span class="updated">2026년 05월 11일 22:25 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -465,14 +465,14 @@ function renderWeek(idx) {
       '<thead><tr>' +
       '<th style="padding-left:11px">원장</th>' +
       '<th class="num">코호트</th>' +
-      '<th class="num">재진 수</th><th class="num">재진률</th>' +
-      '<th class="num">삼진 수</th><th class="num">삼진률</th>' +
+      '<th class="num">재진 수</th><th class="num">재진률<br><span style="color:#475569;font-size:0.67rem;font-weight:400">목표 80%</span></th>' +
+      '<th class="num">삼진 수</th><th class="num">삼진률<br><span style="color:#475569;font-size:0.67rem;font-weight:400">목표 70%</span></th>' +
       '<th class="num">비고</th>' +
       '</tr></thead><tbody>';
     for (var i=0; i<rtDocs.length; i++) {
       var r = rt[rtDocs[i]];
-      var revColor = r.revisit_rate >= 60 ? '#10b981' : r.revisit_rate >= 40 ? '#f59e0b' : '#ef4444';
-      var thiColor = r.third_rate  >= 40 ? '#10b981' : r.third_rate  >= 25 ? '#f59e0b' : '#ef4444';
+      var revColor = r.revisit_rate >= 70 ? '#10b981' : r.revisit_rate >= 55 ? '#f59e0b' : '#ef4444';
+      var thiColor = r.third_rate  >= 60 ? '#10b981' : r.third_rate  >= 45 ? '#f59e0b' : '#ef4444';
       rttbl += '<tr>' +
         '<td class="doc-name" style="border-left:3px solid ' + color(rtDocs[i]) + ';padding-left:8px">' + rtDocs[i] + '</td>' +
         '<td class="num">' + r.cohort + '명</td>' +
@@ -485,7 +485,7 @@ function renderWeek(idx) {
     }
     rttbl += '</tbody></table>' +
       '<p style="color:#475569;font-size:0.72rem;margin-top:8px;padding:0 4px">' +
-      '* 초진 담당 원장 기준 · 클리닉 전체 재방문 카운트 · 재진률 ≥60% 🟢 ≥40% 🟡 &lt;40% 🔴</p>';
+      '* 초진 담당 원장 기준 · 클리닉 전체 재방문 카운트 · 재진률 ≥70%🟢 ≥55%🟡 &lt;55%🔴 (목표80%) · 삼진률 ≥60%🟢 ≥45%🟡 &lt;45%🔴 (목표70%)</p>';
     document.getElementById('retTableContainer').innerHTML = rttbl;
   } else {
     document.getElementById('retTableContainer').innerHTML =
