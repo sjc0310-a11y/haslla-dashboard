@@ -69,6 +69,28 @@
                    border-radius:6px;cursor:pointer;font-size:0.84rem;font-weight:600}
   .retro-save-btn:hover{background:#2563eb}
   .retro-saved{color:#10b981;font-size:0.78rem;display:none}
+  /* ── 이름 선택 오버레이 ── */
+  #selectScreen{position:fixed;inset:0;background:#0f172a;z-index:9999;
+                display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
+  #selectScreen h2{font-size:1.5rem;color:#f1f5f9;font-weight:700}
+  #selectScreen p{color:#64748b;font-size:0.92rem}
+  .select-btns{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:600px}
+  .select-doc-btn{background:#1e293b;border:2px solid #334155;color:#e2e8f0;
+                   padding:18px 44px;border-radius:12px;cursor:pointer;font-size:1.05rem;
+                   font-weight:600;min-width:160px;transition:all 0.15s}
+  .select-doc-btn:hover{border-color:#3b82f6;color:#3b82f6}
+  /* ── 개인 KPI 배너 ── */
+  #myKpiSection{display:none}
+  #myKpiBanner{background:linear-gradient(135deg,#1e3a5f 0%,#1e293b 100%);
+                border:1px solid #3b82f6;border-radius:12px;padding:16px 20px;
+                margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  #myKpiBanner .my-name{font-size:1rem;font-weight:700;color:#60a5fa;min-width:130px}
+  .my-kpi-card{background:#0f172a;border-radius:8px;padding:9px 14px;min-width:100px;text-align:center}
+  .my-kpi-card .mk-label{font-size:0.67rem;color:#64748b;margin-bottom:3px}
+  .my-kpi-card .mk-value{font-size:1rem;font-weight:700;color:#f1f5f9}
+  .change-btn{background:none;border:1px solid #334155;color:#64748b;padding:5px 12px;
+               border-radius:6px;cursor:pointer;font-size:0.75rem;margin-left:auto;white-space:nowrap}
+  .change-btn:hover{border-color:#94a3b8;color:#94a3b8}
   @media(max-width:900px){
     .header{grid-template-columns:1fr;gap:8px}
     .header .updated{text-align:left}
@@ -79,6 +101,19 @@
 </head>
 <body>
 
+<!-- ══ 이름 선택 오버레이 ══════════════════════════════════ -->
+<div id="selectScreen">
+  <h2>🏥 하슬라한의원 대시보드</h2>
+  <p>원장을 선택해주세요</p>
+  <div class="select-btns">
+    <button class="select-doc-btn" onclick="selectDoctor('노왕식')">노왕식 원장</button>
+    <button class="select-doc-btn" onclick="selectDoctor('이문환')">이문환 원장</button>
+    <button class="select-doc-btn" onclick="selectDoctor('방민준')">방민준 원장</button>
+    <button class="select-doc-btn" onclick="selectDoctor('배용빈')">배용빈 원장</button>
+    <button class="select-doc-btn" onclick="selectDoctor('김한중')">김한중 원장</button>
+  </div>
+</div>
+
 <div class="header">
   <h1>🏥 하슬라한의원 경영 대시보드</h1>
   <div class="week-nav">
@@ -86,10 +121,29 @@
     <span id="weekLabel">로딩 중...</span>
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
-  <span class="updated">2026년 05월 11일 12:35 기준</span>
+  <div style="text-align:right">
+    <span class="updated">2026년 05월 11일 13:26 기준</span><br>
+    <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
+  </div>
 </div>
 
 <div class="container">
+
+  <!-- ═══ 개인 KPI 배너 (동적) ════════════════════════════ -->
+  <div id="myKpiSection">
+    <div class="section-title" style="margin-top:4px">내 현황</div>
+    <div id="myKpiBanner">
+      <span class="my-name" id="myName">—</span>
+      <div class="my-kpi-card"><div class="mk-label">건보매출</div><div class="mk-value" id="my-kbo">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">자보매출</div><div class="mk-value" id="my-jbo">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">비급여매출</div><div class="mk-value" id="my-nins">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">린다이어트</div><div class="mk-value" id="my-linda">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">재진률</div><div class="mk-value" id="my-revisit">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">삼진률</div><div class="mk-value" id="my-third">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">건보추나</div><div class="mk-value" id="my-chuna">—</div></div>
+      <button class="change-btn" onclick="changeDoctor()">👤 변경</button>
+    </div>
+  </div>
 
   <!-- ═══ 주간 전체 지표 (동적) ══════════════════════════ -->
   <div class="section-title" id="weekSectionTitle">주간 현황</div>
@@ -239,7 +293,43 @@ var allWeeks   = [{"label": "2025-11-10", "label_display": "11/10(월)~11/16(일
 var currentIdx = allWeeks.length > 0 ? allWeeks.length - 1 : 0;
 var chunaDoctors  = ["노왕식", "이문환", "방민준"];
 var docColorMap   = {"노왕식": "#3b82f6", "이문환": "#10b981", "방민준": "#f59e0b", "배용빈": "#f472b6", "김한중": "#38bdf8"};
-var retroDoc   = chunaDoctors[0] || '노왕식';
+var myDoc      = localStorage.getItem('haslla_myDoc') || null;
+var retroDoc   = myDoc || chunaDoctors[0] || '노왕식';
+
+// ── 원장 선택 / 개인뷰 ────────────────────────────────────
+function selectDoctor(name) {
+  myDoc = name;
+  retroDoc = name;
+  localStorage.setItem('haslla_myDoc', name);
+  document.getElementById('selectScreen').style.display = 'none';
+  document.getElementById('myKpiSection').style.display = 'block';
+  document.getElementById('myName').textContent = name + ' 원장님 👋';
+  var hd = document.getElementById('headerDoc');
+  if (hd) hd.textContent = name + ' 원장';
+  renderWeek(currentIdx);
+}
+
+function changeDoctor() {
+  document.getElementById('selectScreen').style.display = 'flex';
+}
+
+function updateMyKpi(idx) {
+  if (!myDoc) return;
+  var week = allWeeks[idx];
+  var dr  = week.doc_revenue || {};
+  var rev = dr[myDoc] || {};
+  document.getElementById('my-kbo').textContent   = fmtWon(rev['건보']   || 0);
+  document.getElementById('my-jbo').textContent   = fmtWon(rev['자보']   || 0);
+  document.getElementById('my-nins').textContent  = fmtWon(rev['비급여'] || 0);
+  document.getElementById('my-linda').textContent = fmtWon(rev['린다이어트'] || 0);
+  var rt   = week.retention || {};
+  var myRt = rt[myDoc]    || {};
+  document.getElementById('my-revisit').textContent = myRt.revisit_rate != null ? myRt.revisit_rate + '%' : '—';
+  document.getElementById('my-third').textContent   = myRt.third_rate   != null ? myRt.third_rate   + '%' : '—';
+  var ch   = week.chuna   || {};
+  var myCh = ch[myDoc]   || {'건보추나':0,'TA추나':0};
+  document.getElementById('my-chuna').textContent = myCh['건보추나'];
+}
 
 function fmtWon(n) {
   return Math.floor(n / 10000).toLocaleString() + '만원';
@@ -470,6 +560,9 @@ function renderWeek(idx) {
   document.getElementById('retroSectionTitle').textContent = '📗 주간 회고 — ' + week.label_display;
   renderRetroTabs(week.label);
   renderRetroForm(week.label, retroDoc);
+
+  // ── 개인 KPI 배너 업데이트 ───────────────────────────────
+  updateMyKpi(idx);
 }
 
 function changeWeek(dir) {
@@ -645,7 +738,16 @@ new Chart(document.getElementById('newPat'), {
 });
 
 // 초기 렌더
-if (allWeeks.length > 0) renderWeek(currentIdx);
+if (allWeeks.length > 0) {
+  if (myDoc) {
+    document.getElementById('selectScreen').style.display = 'none';
+    document.getElementById('myKpiSection').style.display = 'block';
+    document.getElementById('myName').textContent = myDoc + ' 원장님 👋';
+    var hd = document.getElementById('headerDoc');
+    if (hd) hd.textContent = myDoc + ' 원장';
+  }
+  renderWeek(currentIdx);
+}
 </script>
 </body>
 </html>
