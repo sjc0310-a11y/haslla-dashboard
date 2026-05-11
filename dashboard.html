@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>하슬라한의원 경영 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Apple SD Gothic Neo',Arial,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+  .header{background:#1e293b;padding:14px 32px;border-bottom:1px solid #334155;
+           display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+           position:sticky;top:0;z-index:200}
+  .header h1{font-size:1.2rem;font-weight:700;color:#f8fafc}
+  .header .updated{font-size:0.7rem;color:#64748b;text-align:right}
+  .week-nav{display:flex;align-items:center;gap:14px;justify-content:center}
+  .week-nav button{background:#334155;border:none;color:#e2e8f0;padding:7px 16px;
+                    border-radius:6px;cursor:pointer;font-size:0.82rem}
+  .week-nav button:hover{background:#475569}
+  .week-nav button:disabled{opacity:0.3;cursor:default}
+  .week-nav span{font-size:0.92rem;color:#f1f5f9;font-weight:600;white-space:nowrap}
+  .container{padding:24px 32px;max-width:1400px;margin:0 auto}
+  .section-title{font-size:0.78rem;font-weight:600;color:#94a3b8;text-transform:uppercase;
+                  letter-spacing:1px;margin-bottom:12px;margin-top:28px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:8px}
+  .card{background:#1e293b;border-radius:12px;padding:18px 20px;border:1px solid #334155}
+  .card .label{font-size:0.72rem;color:#64748b;margin-bottom:6px}
+  .card .value{font-size:1.45rem;font-weight:700;color:#f1f5f9}
+  .card .sub{font-size:0.72rem;color:#94a3b8;margin-top:4px}
+  .card.highlight .value{color:#3b82f6}
+  .card.green .value{color:#10b981}
+  .card.yellow .value{color:#f59e0b}
+  .card.purple .value{color:#a78bfa}
+  .card.pink .value{color:#f472b6}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+  .chart-box{background:#1e293b;border-radius:12px;padding:20px;border:1px solid #334155}
+  .chart-box h3{font-size:0.83rem;font-weight:600;color:#cbd5e1;margin-bottom:14px}
+  .chuna-table{width:100%;border-collapse:collapse;font-size:0.84rem;table-layout:fixed}
+  .chuna-table th{text-align:left;color:#64748b;font-weight:500;font-size:0.73rem;
+                   padding:7px 10px;border-bottom:1px solid #334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chuna-table td{padding:8px 10px;border-bottom:1px solid #1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chuna-table tr:last-child td{border-bottom:none;font-weight:700;color:#f1f5f9;background:#0f172a}
+  .num{text-align:right}
+  .chuna-table th.num{text-align:right}
+  .doc-name{color:#e2e8f0}
+  .bold{color:#3b82f6!important}
+  .total-row td{background:#0f172a;color:#f1f5f9;font-weight:700}
+  .overflow-x{overflow-x:auto}
+  .fixed-badge{font-size:0.68rem;color:#475569;margin-left:8px;font-weight:400;
+                background:#1e293b;padding:2px 6px;border-radius:4px;border:1px solid #334155}
+  /* ── 주간 회고 ── */
+  .retro-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .retro-tab{background:#334155;border:none;color:#94a3b8;padding:8px 22px;
+              border-radius:6px;cursor:pointer;font-size:0.82rem;transition:all 0.15s}
+  .retro-tab.active{background:#3b82f6;color:#fff}
+  .retro-tab:hover:not(.active){background:#475569;color:#e2e8f0}
+  .retro-tab .has-data{font-size:0.65rem;margin-left:4px;color:#10b981}
+  .retro-field{margin-bottom:16px}
+  .retro-field label{display:block;font-size:0.73rem;color:#94a3b8;margin-bottom:7px;
+                      font-weight:600;letter-spacing:0.5px;text-transform:uppercase}
+  .retro-hint{font-size:0.71rem;color:#475569;font-style:italic;margin-top:5px}
+  .retro-textarea{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;
+                   color:#e2e8f0;padding:10px 13px;font-size:0.84rem;resize:vertical;
+                   font-family:'Apple SD Gothic Neo',Arial,sans-serif;min-height:72px;line-height:1.6}
+  .retro-textarea:focus{outline:none;border-color:#3b82f6}
+  .retro-actions{display:flex;align-items:center;gap:12px;margin-top:6px}
+  .retro-save-btn{background:#3b82f6;border:none;color:#fff;padding:8px 22px;
+                   border-radius:6px;cursor:pointer;font-size:0.84rem;font-weight:600}
+  .retro-save-btn:hover{background:#2563eb}
+  .retro-saved{color:#10b981;font-size:0.78rem;display:none}
+  @media(max-width:900px){
+    .header{grid-template-columns:1fr;gap:8px}
+    .header .updated{text-align:left}
+    .grid2,.grid3{grid-template-columns:1fr}
+    .container{padding:16px}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏥 하슬라한의원 경영 대시보드</h1>
+  <div class="week-nav">
+    <button id="prevWeek" onclick="changeWeek(-1)">← 이전 주</button>
+    <span id="weekLabel">로딩 중...</span>
+    <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
+  </div>
+  <span class="updated">2026년 05월 11일 12:35 기준</span>
+</div>
+
+<div class="container">
+
+  <!-- ═══ 주간 전체 지표 (동적) ══════════════════════════ -->
+  <div class="section-title" id="weekSectionTitle">주간 현황</div>
+  <div class="cards">
+    <div class="card highlight">
+      <div class="label">건보 매출</div>
+      <div class="value" id="card-kbo">—</div>
+      <div class="sub">본인부담 + 공단청구</div>
+    </div>
+    <div class="card green">
+      <div class="label">자보 매출</div>
+      <div class="value" id="card-jbo">—</div>
+      <div class="sub">자동차보험 청구</div>
+    </div>
+    <div class="card yellow">
+      <div class="label">비급여 매출</div>
+      <div class="value" id="card-nins">—</div>
+      <div class="sub">현금·카드 비급여</div>
+    </div>
+    <div class="card purple">
+      <div class="label">린다이어트 매출</div>
+      <div class="value" id="card-linda">—</div>
+      <div class="sub">린다이어트 관련 합계</div>
+    </div>
+    <div class="card">
+      <div class="label">재진율</div>
+      <div class="value" id="card-revisit">—</div>
+      <div class="sub">전체 내원 중 재진 비율</div>
+    </div>
+    <div class="card pink">
+      <div class="label">신환</div>
+      <div class="value" id="card-newpat">—</div>
+      <div class="sub">신규 환자 수</div>
+    </div>
+  </div>
+
+  <!-- ═══ 원장별 매출 현황 (동적) ════════════════════════ -->
+  <div class="section-title" id="docRevSectionTitle">원장별 매출 현황</div>
+  <div class="grid3">
+    <div class="chart-box overflow-x">
+      <h3>원장별 매출 집계</h3>
+      <div id="docRevTableContainer">
+        <p style="color:#475569;font-size:0.82rem;padding:12px">로딩 중...</p>
+      </div>
+    </div>
+    <div class="chart-box">
+      <h3>원장별 매출 비율</h3>
+      <canvas id="docRevPie" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══ 재진/삼진률 (동적) ════════════════════════════════ -->
+  <div class="section-title" id="retSectionTitle">원장별 재진/삼진률</div>
+  <div class="chart-box overflow-x">
+    <h3 id="retTableTitle">재진/삼진률 — 3주 전 초진 코호트 기준</h3>
+    <div id="retTableContainer">
+      <p style="color:#475569;font-size:0.82rem;padding:12px">로딩 중...</p>
+    </div>
+  </div>
+
+  <!-- ═══ 주간 회고 (동적) ════════════════════════════════ -->
+  <div class="section-title" id="retroSectionTitle">📗 주간 회고</div>
+  <div class="chart-box" id="retroBox">
+    <div class="retro-tabs" id="retroTabs"></div>
+    <div id="retroContent"></div>
+  </div>
+
+  <!-- ═══ 추나 현황 (동적) ════════════════════════════════ -->
+  <div class="section-title" id="chunaSectionTitle">원장별 추나 현황</div>
+  <div class="grid3">
+    <div class="chart-box">
+      <h3>추나 집계</h3>
+      <table class="chuna-table">
+        <colgroup><col style="width:30%"><col style="width:23%"><col style="width:23%"><col style="width:24%"></colgroup>
+        <thead>
+          <tr><th>원장</th><th class="num">건보추나</th><th class="num">TA추나</th><th class="num">합계</th></tr>
+        </thead>
+        <tbody id="chunaSummaryBody">
+          <tr><td colspan="4" style="color:#475569;text-align:center">로딩 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="chart-box">
+      <h3>추나 비율</h3>
+      <canvas id="chunaPie" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══ 추나 일별 상세 (동적) ══════════════════════════ -->
+  <div class="chart-box" style="margin-top:16px">
+    <h3 id="weekDetailTitle">주간 일별 상세</h3>
+    <div id="weekDetailContainer" class="overflow-x"></div>
+  </div>
+
+  <!-- ═══ 주간 건보추나 트렌드 (고정) ════════════════════ -->
+  <div class="section-title">주간 건보추나 트렌드 (최근 12주)<span class="fixed-badge">고정</span></div>
+  <div class="chart-box">
+    <h3>원장별 건보추나 주간 합계</h3>
+    <canvas id="chunaBar" height="80"></canvas>
+  </div>
+
+  <!-- ═══ 월별 건보추나 인센티브 (고정) ══════════════════ -->
+  <div class="section-title">월별 건보추나 현황 (인센티브 기준)<span class="fixed-badge">고정</span></div>
+  <div class="grid3">
+    <div class="chart-box overflow-x">
+      <h3>원장별 월별 건보추나</h3>
+      <table class="chuna-table" style="font-size:0.78rem">
+        <colgroup><col style="width:14%"><col style="width:12.3%"><col style="width:12.3%"><col style="width:12.3%"><col style="width:12.3%"><col style="width:12.3%"><col style="width:12.3%"><col style="width:12%"></colgroup>
+        <thead><tr><th>원장</th><th class="num">2025.12</th><th class="num">2026.01</th><th class="num">2026.02</th><th class="num">2026.03</th><th class="num">2026.04</th><th class="num">2026.05</th><th class="num">합계</th></tr></thead>
+        <tbody>
+          <tr><td class="doc-name">노왕식</td><td class="num">116</td><td class="num">109</td><td class="num">101</td><td class="num">99</td><td class="num">86</td><td class="num">44</td><td class="num bold">555</td></tr><tr><td class="doc-name">이문환</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">4</td><td class="num">42</td><td class="num bold">46</td></tr><tr><td class="doc-name">방민준</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">26</td><td class="num">26</td><td class="num bold">52</td></tr>
+          <tr class="total-row"><td>합계</td><td class="num">116</td><td class="num">109</td><td class="num">101</td><td class="num">99</td><td class="num">116</td><td class="num">112</td><td class="num bold">653</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="chart-box">
+      <h3>월별 건보추나 추이</h3>
+      <canvas id="chunaMonthBar" height="220"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══ 월별 원장별 매출 (고정) ════════════════════════ -->
+  <div class="section-title">월별 원장별 매출 추이 (최근 6개월)<span class="fixed-badge">고정</span></div>
+  <div class="chart-box">
+    <h3>원장별 총매출 (건보+자보+비급여)</h3>
+    <canvas id="docMonthBar" height="80"></canvas>
+  </div>
+
+  <!-- ═══ 전체 매출 트렌드 (고정) ════════════════════════ -->
+  <div class="section-title">전체 매출 트렌드 (최근 6개월)<span class="fixed-badge">고정</span></div>
+  <div class="chart-box">
+    <h3>월별 건보 / 자보 / 비급여 매출</h3>
+    <canvas id="revBar" height="80"></canvas>
+  </div>
+
+  <!-- ═══ 신환 현황 (고정) ════════════════════════════════ -->
+  <div class="section-title">신환 현황 (최근 6개월)<span class="fixed-badge">고정</span></div>
+  <div class="chart-box">
+    <h3>월별 신환 수</h3>
+    <canvas id="newPat" height="80"></canvas>
+  </div>
+
+</div>
+
+<script>
+var allWeeks   = [{"label": "2025-11-10", "label_display": "11/10(월)~11/16(일)", "kbo": 22001290, "jbo": 12553710, "nins": 9291300, "linda": 590000, "revisit_rate": 89.9, "new_patients": 41, "chuna": {"노왕식": {"건보추나": 22, "TA추나": 33}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2025-11-10", "원장명": "노왕식", "건보추나": 4, "TA추나": 4}, {"날짜": "2025-11-11", "원장명": "노왕식", "건보추나": 6, "TA추나": 5}, {"날짜": "2025-11-13", "원장명": "노왕식", "건보추나": 4, "TA추나": 9}, {"날짜": "2025-11-14", "원장명": "노왕식", "건보추나": 8, "TA추나": 15}], "doc_revenue": {"김한중": {"건보": 4194840, "자보": 3767510, "비급여": 1000600, "린다이어트": 0}, "노왕식": {"건보": 4025860, "자보": 3626180, "비급여": 405900, "린다이어트": 20000}, "배용빈": {"건보": 3827440, "자보": 2841440, "비급여": 921900, "린다이어트": 40000}}, "retention": {"김한중": {"cohort": 30, "revisit": 23, "third": 19, "revisit_rate": 76.7, "third_rate": 63.3}, "노왕식": {"cohort": 25, "revisit": 19, "third": 12, "revisit_rate": 76.0, "third_rate": 48.0}, "배용빈": {"cohort": 21, "revisit": 17, "third": 14, "revisit_rate": 81.0, "third_rate": 66.7}}}, {"label": "2025-11-17", "label_display": "11/17(월)~11/23(일)", "kbo": 21849930, "jbo": 14162850, "nins": 13378100, "linda": 5526000, "revisit_rate": 88.6, "new_patients": 51, "chuna": {"노왕식": {"건보추나": 28, "TA추나": 47}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2025-11-17", "원장명": "노왕식", "건보추나": 7, "TA추나": 1}, {"날짜": "2025-11-18", "원장명": "노왕식", "건보추나": 5, "TA추나": 12}, {"날짜": "2025-11-20", "원장명": "노왕식", "건보추나": 6, "TA추나": 12}, {"날짜": "2025-11-21", "원장명": "노왕식", "건보추나": 6, "TA추나": 15}, {"날짜": "2025-11-22", "원장명": "노왕식", "건보추나": 4, "TA추나": 7}], "doc_revenue": {"김한중": {"건보": 2981210, "자보": 5104400, "비급여": 1033900, "린다이어트": 486000}, "노왕식": {"건보": 5662720, "자보": 4658970, "비급여": 2366200, "린다이어트": 1490000}, "배용빈": {"건보": 6416920, "자보": 4339870, "비급여": 5210700, "린다이어트": 1870000}}, "retention": {"김한중": {"cohort": 18, "revisit": 12, "third": 11, "revisit_rate": 66.7, "third_rate": 61.1}, "노왕식": {"cohort": 15, "revisit": 11, "third": 9, "revisit_rate": 73.3, "third_rate": 60.0}, "배용빈": {"cohort": 17, "revisit": 12, "third": 8, "revisit_rate": 70.6, "third_rate": 47.1}}}, {"label": "2025-11-24", "label_display": "11/24(월)~11/30(일)", "kbo": 22771130, "jbo": 11565690, "nins": 10356800, "linda": 710000, "revisit_rate": 91.8, "new_patients": 55, "chuna": {"노왕식": {"건보추나": 21, "TA추나": 30}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2025-11-24", "원장명": "노왕식", "건보추나": 2, "TA추나": 2}, {"날짜": "2025-11-25", "원장명": "노왕식", "건보추나": 5, "TA추나": 6}, {"날짜": "2025-11-27", "원장명": "노왕식", "건보추나": 2, "TA추나": 8}, {"날짜": "2025-11-28", "원장명": "노왕식", "건보추나": 6, "TA추나": 9}, {"날짜": "2025-11-29", "원장명": "노왕식", "건보추나": 6, "TA추나": 5}], "doc_revenue": {"김한중": {"건보": 4889360, "자보": 4005960, "비급여": 1721600, "린다이어트": 0}, "노왕식": {"건보": 5079660, "자보": 3226110, "비급여": 1321600, "린다이어트": 0}, "배용빈": {"건보": 6583610, "자보": 4274010, "비급여": 2731000, "린다이어트": 510000}}, "retention": {"김한중": {"cohort": 26, "revisit": 19, "third": 14, "revisit_rate": 73.1, "third_rate": 53.8}, "노왕식": {"cohort": 21, "revisit": 15, "third": 13, "revisit_rate": 71.4, "third_rate": 61.9}, "배용빈": {"cohort": 23, "revisit": 20, "third": 18, "revisit_rate": 87.0, "third_rate": 78.3}}}, {"label": "2025-12-01", "label_display": "12/01(월)~12/07(일)", "kbo": 22902620, "jbo": 12302510, "nins": 17399000, "linda": 1680000, "revisit_rate": 90.4, "new_patients": 50, "chuna": {"노왕식": {"건보추나": 31, "TA추나": 32}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2025-12-01", "원장명": "노왕식", "건보추나": 3, "TA추나": 4}, {"날짜": "2025-12-02", "원장명": "노왕식", "건보추나": 5, "TA추나": 6}, {"날짜": "2025-12-04", "원장명": "노왕식", "건보추나": 11, "TA추나": 9}, {"날짜": "2025-12-05", "원장명": "노왕식", "건보추나": 6, "TA추나": 9}, {"날짜": "2025-12-06", "원장명": "노왕식", "건보추나": 6, "TA추나": 4}], "doc_revenue": {"김한중": {"건보": 5898880, "자보": 5324420, "비급여": 1237000, "린다이어트": 510000}, "노왕식": {"건보": 6104410, "자보": 4116510, "비급여": 1624100, "린다이어트": 40000}, "배용빈": {"건보": 4038490, "자보": 2801970, "비급여": 2102200, "린다이어트": 1110000}}, "retention": {"김한중": {"cohort": 27, "revisit": 18, "third": 15, "revisit_rate": 66.7, "third_rate": 55.6}, "노왕식": {"cohort": 20, "revisit": 10, "third": 9, "revisit_rate": 50.0, "third_rate": 45.0}, "배용빈": {"cohort": 11, "revisit": 9, "third": 9, "revisit_rate": 81.8, "third_rate": 81.8}}}, {"label": "2025-12-08", "label_display": "12/08(월)~12/14(일)", "kbo": 22064400, "jbo": 8360920, "nins": 8458200, "linda": 3090000, "revisit_rate": 91.8, "new_patients": 37, "chuna": {"노왕식": {"건보추나": 31, "TA추나": 25}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2025-12-08", "원장명": "노왕식", "건보추나": 6, "TA추나": 4}, {"날짜": "2025-12-09", "원장명": "노왕식", "건보추나": 7, "TA추나": 5}, {"날짜": "2025-12-11", "원장명": "노왕식", "건보추나": 7, "TA추나": 6}, {"날짜": "2025-12-12", "원장명": "노왕식", "건보추나": 8, "TA추나": 7}, {"날짜": "2025-12-13", "원장명": "노왕식", "건보추나": 3, "TA추나": 3}], "doc_revenue": {"김한중": {"건보": 4432180, "자보": 2985870, "비급여": 683600, "린다이어트": 0}, "노왕식": {"건보": 5245410, "자보": 2836940, "비급여": 1828600, "린다이어트": 980000}, "배용빈": {"건보": 5537230, "자보": 2478500, "비급여": 3131000, "린다이어트": 1330000}}, "retention": {"김한중": {"cohort": 22, "revisit": 18, "third": 13, "revisit_rate": 81.8, "third_rate": 59.1}, "노왕식": {"cohort": 24, "revisit": 18, "third": 16, "revisit_rate": 75.0, "third_rate": 66.7}, "배용빈": {"cohort": 26, "revisit": 19, "third": 17, "revisit_rate": 73.1, "third_rate": 65.4}}}, {"label": "2025-12-15", "label_display": "12/15(월)~12/21(일)", "kbo": 22427940, "jbo": 7533370, "nins": 17640600, "linda": 1030000, "revisit_rate": 88.5, "new_patients": 47, "chuna": {"노왕식": {"건보추나": 26, "TA추나": 27}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2025-12-15", "원장명": "노왕식", "건보추나": 5, "TA추나": 3}, {"날짜": "2025-12-16", "원장명": "노왕식", "건보추나": 4, "TA추나": 5}, {"날짜": "2025-12-18", "원장명": "노왕식", "건보추나": 7, "TA추나": 6}, {"날짜": "2025-12-19", "원장명": "노왕식", "건보추나": 6, "TA추나": 10}, {"날짜": "2025-12-20", "원장명": "노왕식", "건보추나": 4, "TA추나": 3}], "doc_revenue": {"김한중": {"건보": 4415360, "자보": 2289770, "비급여": 1483600, "린다이어트": 1030000}, "노왕식": {"건보": 4819560, "자보": 3244520, "비급여": 557600, "린다이어트": 0}, "배용빈": {"건보": 5454480, "자보": 1939470, "비급여": 1252400, "린다이어트": 0}}, "retention": {"김한중": {"cohort": 27, "revisit": 18, "third": 14, "revisit_rate": 66.7, "third_rate": 51.9}, "노왕식": {"cohort": 17, "revisit": 14, "third": 12, "revisit_rate": 82.4, "third_rate": 70.6}, "배용빈": {"cohort": 13, "revisit": 9, "third": 6, "revisit_rate": 69.2, "third_rate": 46.2}}}, {"label": "2025-12-22", "label_display": "12/22(월)~12/28(일)", "kbo": 17382550, "jbo": 7038600, "nins": 14985100, "linda": 3480000, "revisit_rate": 90.3, "new_patients": 35, "chuna": {"노왕식": {"건보추나": 19, "TA추나": 27}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2025-12-22", "원장명": "노왕식", "건보추나": 4, "TA추나": 2}, {"날짜": "2025-12-23", "원장명": "노왕식", "건보추나": 5, "TA추나": 6}, {"날짜": "2025-12-25", "원장명": "노왕식", "건보추나": 6, "TA추나": 4}, {"날짜": "2025-12-26", "원장명": "노왕식", "건보추나": 3, "TA추나": 9}, {"날짜": "2025-12-27", "원장명": "노왕식", "건보추나": 1, "TA추나": 6}], "doc_revenue": {"김한중": {"건보": 3170990, "자보": 1615390, "비급여": 918300, "린다이어트": 0}, "노왕식": {"건보": 3927770, "자보": 3568270, "비급여": 3003000, "린다이어트": 2550000}, "배용빈": {"건보": 4059250, "자보": 1795330, "비급여": 1730100, "린다이어트": 440000}}, "retention": {"김한중": {"cohort": 33, "revisit": 21, "third": 17, "revisit_rate": 63.6, "third_rate": 51.5}, "노왕식": {"cohort": 22, "revisit": 16, "third": 12, "revisit_rate": 72.7, "third_rate": 54.5}, "배용빈": {"cohort": 11, "revisit": 8, "third": 6, "revisit_rate": 72.7, "third_rate": 54.5}}}, {"label": "2025-12-29", "label_display": "12/29(월)~01/04(일)", "kbo": 19592650, "jbo": 11194990, "nins": 15206100, "linda": 2482000, "revisit_rate": 92.7, "new_patients": 45, "chuna": {"노왕식": {"건보추나": 26, "TA추나": 29}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2025-12-29", "원장명": "노왕식", "건보추나": 5, "TA추나": 5}, {"날짜": "2025-12-30", "원장명": "노왕식", "건보추나": 4, "TA추나": 6}, {"날짜": "2026-01-01", "원장명": "노왕식", "건보추나": 4, "TA추나": 5}, {"날짜": "2026-01-02", "원장명": "노왕식", "건보추나": 8, "TA추나": 7}, {"날짜": "2026-01-03", "원장명": "노왕식", "건보추나": 5, "TA추나": 6}], "doc_revenue": {"김한중": {"건보": 3705830, "자보": 4508550, "비급여": 734900, "린다이어트": 0}, "노왕식": {"건보": 4735910, "자보": 3528130, "비급여": 2448700, "린다이어트": 1482000}, "배용빈": {"건보": 5954800, "자보": 3058130, "비급여": 3556700, "린다이어트": 1000000}}, "retention": {"김한중": {"cohort": 17, "revisit": 14, "third": 9, "revisit_rate": 82.4, "third_rate": 52.9}, "노왕식": {"cohort": 15, "revisit": 11, "third": 7, "revisit_rate": 73.3, "third_rate": 46.7}, "배용빈": {"cohort": 16, "revisit": 12, "third": 10, "revisit_rate": 75.0, "third_rate": 62.5}}}, {"label": "2026-01-05", "label_display": "01/05(월)~01/11(일)", "kbo": 23604200, "jbo": 10160760, "nins": 12023700, "linda": 3943000, "revisit_rate": 88.1, "new_patients": 52, "chuna": {"노왕식": {"건보추나": 27, "TA추나": 40}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-01-05", "원장명": "노왕식", "건보추나": 5, "TA추나": 4}, {"날짜": "2026-01-06", "원장명": "노왕식", "건보추나": 7, "TA추나": 8}, {"날짜": "2026-01-08", "원장명": "노왕식", "건보추나": 8, "TA추나": 12}, {"날짜": "2026-01-09", "원장명": "노왕식", "건보추나": 5, "TA추나": 8}, {"날짜": "2026-01-10", "원장명": "노왕식", "건보추나": 2, "TA추나": 8}], "doc_revenue": {"김한중": {"건보": 2186050, "자보": 1610970, "비급여": 739400, "린다이어트": 0}, "노왕식": {"건보": 5989390, "자보": 5224460, "비급여": 419800, "린다이어트": 0}, "배용빈": {"건보": 7419090, "자보": 3177930, "비급여": 4097600, "린다이어트": 1996000}}, "retention": {"김한중": {"cohort": 22, "revisit": 16, "third": 11, "revisit_rate": 72.7, "third_rate": 50.0}, "노왕식": {"cohort": 19, "revisit": 10, "third": 10, "revisit_rate": 52.6, "third_rate": 52.6}, "배용빈": {"cohort": 18, "revisit": 12, "third": 9, "revisit_rate": 66.7, "third_rate": 50.0}}}, {"label": "2026-01-12", "label_display": "01/12(월)~01/18(일)", "kbo": 19785080, "jbo": 10522410, "nins": 11816900, "linda": 2260000, "revisit_rate": 88.2, "new_patients": 55, "chuna": {"노왕식": {"건보추나": 18, "TA추나": 37}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-01-12", "원장명": "노왕식", "건보추나": 2, "TA추나": 3}, {"날짜": "2026-01-13", "원장명": "노왕식", "건보추나": 3, "TA추나": 10}, {"날짜": "2026-01-15", "원장명": "노왕식", "건보추나": 6, "TA추나": 5}, {"날짜": "2026-01-16", "원장명": "노왕식", "건보추나": 4, "TA추나": 14}, {"날짜": "2026-01-17", "원장명": "노왕식", "건보추나": 3, "TA추나": 5}], "doc_revenue": {"김한중": {"건보": 4124490, "자보": 4315230, "비급여": 1788000, "린다이어트": 490000}, "노왕식": {"건보": 4418490, "자보": 3621490, "비급여": 3102300, "린다이어트": 540000}, "배용빈": {"건보": 4924320, "자보": 2525030, "비급여": 3711100, "린다이어트": 490000}}, "retention": {"김한중": {"cohort": 15, "revisit": 11, "third": 6, "revisit_rate": 73.3, "third_rate": 40.0}, "노왕식": {"cohort": 19, "revisit": 15, "third": 13, "revisit_rate": 78.9, "third_rate": 68.4}, "배용빈": {"cohort": 16, "revisit": 12, "third": 11, "revisit_rate": 75.0, "third_rate": 68.8}}}, {"label": "2026-01-19", "label_display": "01/19(월)~01/25(일)", "kbo": 24494400, "jbo": 10563110, "nins": 19394000, "linda": 1140000, "revisit_rate": 89.4, "new_patients": 47, "chuna": {"노왕식": {"건보추나": 20, "TA추나": 31}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-01-19", "원장명": "노왕식", "건보추나": 6, "TA추나": 2}, {"날짜": "2026-01-20", "원장명": "노왕식", "건보추나": 2, "TA추나": 7}, {"날짜": "2026-01-22", "원장명": "노왕식", "건보추나": 5, "TA추나": 4}, {"날짜": "2026-01-23", "원장명": "노왕식", "건보추나": 4, "TA추나": 12}, {"날짜": "2026-01-24", "원장명": "노왕식", "건보추나": 3, "TA추나": 6}], "doc_revenue": {"김한중": {"건보": 5152980, "자보": 3825900, "비급여": 2324100, "린다이어트": 580000}, "노왕식": {"건보": 6128720, "자보": 3687580, "비급여": 2039900, "린다이어트": 40000}, "배용빈": {"건보": 5776070, "자보": 2988970, "비급여": 1117200, "린다이어트": 20000}}, "retention": {"김한중": {"cohort": 29, "revisit": 20, "third": 19, "revisit_rate": 69.0, "third_rate": 65.5}, "노왕식": {"cohort": 15, "revisit": 12, "third": 10, "revisit_rate": 80.0, "third_rate": 66.7}, "배용빈": {"cohort": 18, "revisit": 13, "third": 9, "revisit_rate": 72.2, "third_rate": 50.0}}}, {"label": "2026-01-26", "label_display": "01/26(월)~02/01(일)", "kbo": 23552520, "jbo": 7563430, "nins": 17429500, "linda": 4470000, "revisit_rate": 90.9, "new_patients": 41, "chuna": {"노왕식": {"건보추나": 27, "TA추나": 19}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-01-26", "원장명": "노왕식", "건보추나": 5, "TA추나": 1}, {"날짜": "2026-01-27", "원장명": "노왕식", "건보추나": 5, "TA추나": 2}, {"날짜": "2026-01-29", "원장명": "노왕식", "건보추나": 5, "TA추나": 4}, {"날짜": "2026-01-30", "원장명": "노왕식", "건보추나": 7, "TA추나": 8}, {"날짜": "2026-01-31", "원장명": "노왕식", "건보추나": 5, "TA추나": 4}], "doc_revenue": {"김한중": {"건보": 4585530, "자보": 3797970, "비급여": 1695700, "린다이어트": 750000}, "노왕식": {"건보": 5875070, "자보": 2784680, "비급여": 3678000, "린다이어트": 2060000}, "배용빈": {"건보": 6935390, "자보": 920120, "비급여": 3813000, "린다이어트": 1560000}}, "retention": {"김한중": {"cohort": 15, "revisit": 7, "third": 7, "revisit_rate": 46.7, "third_rate": 46.7}, "노왕식": {"cohort": 26, "revisit": 22, "third": 15, "revisit_rate": 84.6, "third_rate": 57.7}, "배용빈": {"cohort": 27, "revisit": 16, "third": 10, "revisit_rate": 59.3, "third_rate": 37.0}}}, {"label": "2026-02-02", "label_display": "02/02(월)~02/08(일)", "kbo": 24895250, "jbo": 6182720, "nins": 17842900, "linda": 4110000, "revisit_rate": 88.9, "new_patients": 57, "chuna": {"노왕식": {"건보추나": 35, "TA추나": 18}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-02-02", "원장명": "노왕식", "건보추나": 6, "TA추나": 2}, {"날짜": "2026-02-03", "원장명": "노왕식", "건보추나": 8, "TA추나": 3}, {"날짜": "2026-02-05", "원장명": "노왕식", "건보추나": 7, "TA추나": 5}, {"날짜": "2026-02-06", "원장명": "노왕식", "건보추나": 8, "TA추나": 4}, {"날짜": "2026-02-07", "원장명": "노왕식", "건보추나": 6, "TA추나": 4}], "doc_revenue": {"김한중": {"건보": 5513220, "자보": 1832590, "비급여": 952900, "린다이어트": 0}, "노왕식": {"건보": 5753480, "자보": 2204260, "비급여": 1497400, "린다이어트": 980000}, "배용빈": {"건보": 6064590, "자보": 2085210, "비급여": 5277500, "린다이어트": 1610000}}, "retention": {"김한중": {"cohort": 29, "revisit": 24, "third": 20, "revisit_rate": 82.8, "third_rate": 69.0}, "노왕식": {"cohort": 20, "revisit": 16, "third": 16, "revisit_rate": 80.0, "third_rate": 80.0}, "배용빈": {"cohort": 20, "revisit": 15, "third": 10, "revisit_rate": 75.0, "third_rate": 50.0}}}, {"label": "2026-02-09", "label_display": "02/09(월)~02/15(일)", "kbo": 25972830, "jbo": 6905710, "nins": 13791600, "linda": 3120000, "revisit_rate": 89.4, "new_patients": 42, "chuna": {"노왕식": {"건보추나": 28, "TA추나": 17}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-02-09", "원장명": "노왕식", "건보추나": 4, "TA추나": 1}, {"날짜": "2026-02-10", "원장명": "노왕식", "건보추나": 7, "TA추나": 4}, {"날짜": "2026-02-12", "원장명": "노왕식", "건보추나": 4, "TA추나": 5}, {"날짜": "2026-02-13", "원장명": "노왕식", "건보추나": 8, "TA추나": 6}, {"날짜": "2026-02-14", "원장명": "노왕식", "건보추나": 5, "TA추나": 1}], "doc_revenue": {"김한중": {"건보": 6228980, "자보": 2495170, "비급여": 3687800, "린다이어트": 1020000}, "노왕식": {"건보": 5936740, "자보": 2057410, "비급여": 2083400, "린다이어트": 1070000}, "배용빈": {"건보": 6295420, "자보": 2292470, "비급여": 1771800, "린다이어트": 540000}}, "retention": {"김한중": {"cohort": 23, "revisit": 16, "third": 12, "revisit_rate": 69.6, "third_rate": 52.2}, "노왕식": {"cohort": 21, "revisit": 19, "third": 13, "revisit_rate": 90.5, "third_rate": 61.9}, "배용빈": {"cohort": 26, "revisit": 19, "third": 18, "revisit_rate": 73.1, "third_rate": 69.2}}}, {"label": "2026-02-16", "label_display": "02/16(월)~02/22(일)", "kbo": 12927620, "jbo": 4867330, "nins": 6008900, "linda": 2580000, "revisit_rate": 91.4, "new_patients": 29, "chuna": {"노왕식": {"건보추나": 15, "TA추나": 18}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-02-19", "원장명": "노왕식", "건보추나": 3, "TA추나": 2}, {"날짜": "2026-02-20", "원장명": "노왕식", "건보추나": 7, "TA추나": 8}, {"날짜": "2026-02-21", "원장명": "노왕식", "건보추나": 5, "TA추나": 8}], "doc_revenue": {"김한중": {"건보": 2617050, "자보": 868660, "비급여": 716600, "린다이어트": 0}, "노왕식": {"건보": 3518580, "자보": 2817680, "비급여": 3304400, "린다이어트": 2070000}, "배용빈": {"건보": 2569470, "자보": 1120330, "비급여": 795800, "린다이어트": 510000}}, "retention": {"김한중": {"cohort": 22, "revisit": 16, "third": 10, "revisit_rate": 72.7, "third_rate": 45.5}, "노왕식": {"cohort": 17, "revisit": 11, "third": 10, "revisit_rate": 64.7, "third_rate": 58.8}, "배용빈": {"cohort": 15, "revisit": 10, "third": 7, "revisit_rate": 66.7, "third_rate": 46.7}}}, {"label": "2026-02-23", "label_display": "02/23(월)~03/01(일)", "kbo": 21623630, "jbo": 9680040, "nins": 14712500, "linda": 4035800, "revisit_rate": 88.2, "new_patients": 51, "chuna": {"노왕식": {"건보추나": 23, "TA추나": 32}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-02-23", "원장명": "노왕식", "건보추나": 4, "TA추나": 2}, {"날짜": "2026-02-24", "원장명": "노왕식", "건보추나": 6, "TA추나": 5}, {"날짜": "2026-02-26", "원장명": "노왕식", "건보추나": 4, "TA추나": 6}, {"날짜": "2026-02-27", "원장명": "노왕식", "건보추나": 5, "TA추나": 12}, {"날짜": "2026-02-28", "원장명": "노왕식", "건보추나": 4, "TA추나": 7}], "doc_revenue": {"김한중": {"건보": 4221800, "자보": 2600030, "비급여": 2962800, "린다이어트": 990000}, "노왕식": {"건보": 4908400, "자보": 4675030, "비급여": 3078900, "린다이어트": 1625800}, "배용빈": {"건보": 5649320, "자보": 2411100, "비급여": 1886700, "린다이어트": 580000}}, "retention": {"김한중": {"cohort": 33, "revisit": 23, "third": 19, "revisit_rate": 69.7, "third_rate": 57.6}, "노왕식": {"cohort": 15, "revisit": 14, "third": 8, "revisit_rate": 93.3, "third_rate": 53.3}, "배용빈": {"cohort": 19, "revisit": 15, "third": 11, "revisit_rate": 78.9, "third_rate": 57.9}}}, {"label": "2026-03-02", "label_display": "03/02(월)~03/08(일)", "kbo": 23244890, "jbo": 10533560, "nins": 16395400, "linda": 3060000, "revisit_rate": 91.9, "new_patients": 49, "chuna": {"노왕식": {"건보추나": 23, "TA추나": 36}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-03-02", "원장명": "노왕식", "건보추나": 4, "TA추나": 3}, {"날짜": "2026-03-03", "원장명": "노왕식", "건보추나": 8, "TA추나": 5}, {"날짜": "2026-03-05", "원장명": "노왕식", "건보추나": 3, "TA추나": 9}, {"날짜": "2026-03-06", "원장명": "노왕식", "건보추나": 6, "TA추나": 9}, {"날짜": "2026-03-07", "원장명": "노왕식", "건보추나": 2, "TA추나": 10}], "doc_revenue": {"김한중": {"건보": 4957170, "자보": 3655040, "비급여": 2105100, "린다이어트": 1000000}, "노왕식": {"건보": 4915890, "자보": 4042550, "비급여": 3491100, "린다이어트": 1070000}, "배용빈": {"건보": 6492560, "자보": 2772310, "비급여": 2659700, "린다이어트": 510000}}, "retention": {"김한중": {"cohort": 19, "revisit": 14, "third": 12, "revisit_rate": 73.7, "third_rate": 63.2}, "노왕식": {"cohort": 25, "revisit": 15, "third": 11, "revisit_rate": 60.0, "third_rate": 44.0}, "배용빈": {"cohort": 17, "revisit": 11, "third": 9, "revisit_rate": 64.7, "third_rate": 52.9}}}, {"label": "2026-03-09", "label_display": "03/09(월)~03/15(일)", "kbo": 21506810, "jbo": 12658640, "nins": 14963400, "linda": 5954000, "revisit_rate": 89.1, "new_patients": 44, "chuna": {"노왕식": {"건보추나": 23, "TA추나": 37}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-03-09", "원장명": "노왕식", "건보추나": 2, "TA추나": 2}, {"날짜": "2026-03-10", "원장명": "노왕식", "건보추나": 5, "TA추나": 6}, {"날짜": "2026-03-12", "원장명": "노왕식", "건보추나": 4, "TA추나": 7}, {"날짜": "2026-03-13", "원장명": "노왕식", "건보추나": 7, "TA추나": 14}, {"날짜": "2026-03-14", "원장명": "노왕식", "건보추나": 5, "TA추나": 8}], "doc_revenue": {"김한중": {"건보": 4507660, "자보": 3717570, "비급여": 2345300, "린다이어트": 1570000}, "노왕식": {"건보": 5146990, "자보": 4163970, "비급여": 2255500, "린다이어트": 1030000}, "배용빈": {"건보": 5165810, "자보": 4716440, "비급여": 3818900, "린다이어트": 2800000}}, "retention": {"김한중": {"cohort": 14, "revisit": 10, "third": 6, "revisit_rate": 71.4, "third_rate": 42.9}, "노왕식": {"cohort": 22, "revisit": 17, "third": 13, "revisit_rate": 77.3, "third_rate": 59.1}, "배용빈": {"cohort": 7, "revisit": 6, "third": 6, "revisit_rate": 85.7, "third_rate": 85.7}}}, {"label": "2026-03-16", "label_display": "03/16(월)~03/22(일)", "kbo": 24200700, "jbo": 11578270, "nins": 12023400, "linda": 2260000, "revisit_rate": 90.8, "new_patients": 47, "chuna": {"노왕식": {"건보추나": 27, "TA추나": 35}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-03-16", "원장명": "노왕식", "건보추나": 4, "TA추나": 3}, {"날짜": "2026-03-17", "원장명": "노왕식", "건보추나": 7, "TA추나": 8}, {"날짜": "2026-03-19", "원장명": "노왕식", "건보추나": 6, "TA추나": 10}, {"날짜": "2026-03-20", "원장명": "노왕식", "건보추나": 7, "TA추나": 11}, {"날짜": "2026-03-21", "원장명": "노왕식", "건보추나": 3, "TA추나": 3}], "doc_revenue": {"김한중": {"건보": 5467430, "자보": 4477780, "비급여": 1349400, "린다이어트": 510000}, "노왕식": {"건보": 4703630, "자보": 4161930, "비급여": 1564700, "린다이어트": 530000}, "배용빈": {"건보": 6115000, "자보": 2877900, "비급여": 1723400, "린다이어트": 540000}}, "retention": {"김한중": {"cohort": 20, "revisit": 12, "third": 8, "revisit_rate": 60.0, "third_rate": 40.0}, "노왕식": {"cohort": 24, "revisit": 19, "third": 14, "revisit_rate": 79.2, "third_rate": 58.3}, "배용빈": {"cohort": 17, "revisit": 13, "third": 11, "revisit_rate": 76.5, "third_rate": 64.7}}}, {"label": "2026-03-23", "label_display": "03/23(월)~03/29(일)", "kbo": 21090720, "jbo": 11630590, "nins": 20638300, "linda": 4010000, "revisit_rate": 90.9, "new_patients": 51, "chuna": {"노왕식": {"건보추나": 17, "TA추나": 20}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-03-26", "원장명": "노왕식", "건보추나": 7, "TA추나": 2}, {"날짜": "2026-03-27", "원장명": "노왕식", "건보추나": 6, "TA추나": 11}, {"날짜": "2026-03-28", "원장명": "노왕식", "건보추나": 4, "TA추나": 7}], "doc_revenue": {"김한중": {"건보": 5433620, "자보": 4996340, "비급여": 1286300, "린다이어트": 500000}, "배용빈": {"건보": 6444370, "자보": 4498800, "비급여": 4868100, "린다이어트": 1990000}, "노왕식": {"건보": 2897400, "자보": 2074790, "비급여": 1520600, "린다이어트": 1030000}}, "retention": {"김한중": {"cohort": 21, "revisit": 15, "third": 12, "revisit_rate": 71.4, "third_rate": 57.1}, "노왕식": {"cohort": 19, "revisit": 14, "third": 12, "revisit_rate": 73.7, "third_rate": 63.2}, "배용빈": {"cohort": 24, "revisit": 18, "third": 16, "revisit_rate": 75.0, "third_rate": 66.7}}}, {"label": "2026-03-30", "label_display": "03/30(월)~04/05(일)", "kbo": 22080640, "jbo": 12391340, "nins": 14291850, "linda": 6090000, "revisit_rate": 89.9, "new_patients": 61, "chuna": {"노왕식": {"건보추나": 24, "TA추나": 42}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-03-30", "원장명": "노왕식", "건보추나": 4, "TA추나": 4}, {"날짜": "2026-03-31", "원장명": "노왕식", "건보추나": 5, "TA추나": 5}, {"날짜": "2026-04-02", "원장명": "노왕식", "건보추나": 9, "TA추나": 9}, {"날짜": "2026-04-03", "원장명": "노왕식", "건보추나": 2, "TA추나": 12}, {"날짜": "2026-04-04", "원장명": "노왕식", "건보추나": 4, "TA추나": 12}], "doc_revenue": {"김한중": {"건보": 5168530, "자보": 3528730, "비급여": 888700, "린다이어트": 440000}, "노왕식": {"건보": 4888750, "자보": 5104020, "비급여": 4577600, "린다이어트": 3010000}, "배용빈": {"건보": 5512520, "자보": 3697930, "비급여": 4503300, "린다이어트": 2200000}}, "retention": {"김한중": {"cohort": 27, "revisit": 19, "third": 16, "revisit_rate": 70.4, "third_rate": 59.3}, "노왕식": {"cohort": 18, "revisit": 12, "third": 6, "revisit_rate": 66.7, "third_rate": 33.3}, "배용빈": {"cohort": 19, "revisit": 15, "third": 10, "revisit_rate": 78.9, "third_rate": 52.6}}}, {"label": "2026-04-06", "label_display": "04/06(월)~04/12(일)", "kbo": 21352330, "jbo": 11733340, "nins": 14155000, "linda": 1934000, "revisit_rate": 87.1, "new_patients": 53, "chuna": {"노왕식": {"건보추나": 23, "TA추나": 27}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-04-06", "원장명": "노왕식", "건보추나": 2, "TA추나": 1}, {"날짜": "2026-04-07", "원장명": "노왕식", "건보추나": 3, "TA추나": 6}, {"날짜": "2026-04-09", "원장명": "노왕식", "건보추나": 8, "TA추나": 5}, {"날짜": "2026-04-10", "원장명": "노왕식", "건보추나": 9, "TA추나": 8}, {"날짜": "2026-04-11", "원장명": "노왕식", "건보추나": 1, "TA추나": 7}], "doc_revenue": {"김한중": {"건보": 4324930, "자보": 4544090, "비급여": 2070100, "린다이어트": 980000}, "노왕식": {"건보": 4531980, "자보": 3129830, "비급여": 4226200, "린다이어트": 0}, "배용빈": {"건보": 5551250, "자보": 3998760, "비급여": 1396700, "린다이어트": 0}}, "retention": {"김한중": {"cohort": 24, "revisit": 19, "third": 18, "revisit_rate": 79.2, "third_rate": 75.0}, "노왕식": {"cohort": 20, "revisit": 16, "third": 11, "revisit_rate": 80.0, "third_rate": 55.0}, "배용빈": {"cohort": 23, "revisit": 18, "third": 16, "revisit_rate": 78.3, "third_rate": 69.6}}}, {"label": "2026-04-13", "label_display": "04/13(월)~04/19(일)", "kbo": 22337910, "jbo": 8372680, "nins": 20995400, "linda": 6539000, "revisit_rate": 87.5, "new_patients": 61, "chuna": {"노왕식": {"건보추나": 20, "TA추나": 20}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 0, "TA추나": 0}}, "chuna_daily": [{"날짜": "2026-04-13", "원장명": "노왕식", "건보추나": 4, "TA추나": 0}, {"날짜": "2026-04-14", "원장명": "노왕식", "건보추나": 4, "TA추나": 6}, {"날짜": "2026-04-16", "원장명": "노왕식", "건보추나": 4, "TA추나": 3}, {"날짜": "2026-04-17", "원장명": "노왕식", "건보추나": 6, "TA추나": 6}, {"날짜": "2026-04-18", "원장명": "노왕식", "건보추나": 2, "TA추나": 5}], "doc_revenue": {"김한중": {"건보": 5023830, "자보": 3605570, "비급여": 2730100, "린다이어트": 470000}, "노왕식": {"건보": 5392370, "자보": 2045570, "비급여": 5733900, "린다이어트": 3169000}, "배용빈": {"건보": 5218810, "자보": 2660880, "비급여": 4381300, "린다이어트": 2430000}}, "retention": {"김한중": {"cohort": 27, "revisit": 21, "third": 14, "revisit_rate": 77.8, "third_rate": 51.9}, "노왕식": {"cohort": 15, "revisit": 10, "third": 8, "revisit_rate": 66.7, "third_rate": 53.3}, "배용빈": {"cohort": 21, "revisit": 17, "third": 14, "revisit_rate": 81.0, "third_rate": 66.7}}}, {"label": "2026-04-20", "label_display": "04/20(월)~04/26(일)", "kbo": 23678190, "jbo": 10657370, "nins": 6580430, "linda": 1870000, "revisit_rate": 88.0, "new_patients": 48, "chuna": {"노왕식": {"건보추나": 19, "TA추나": 32}, "이문환": {"건보추나": 0, "TA추나": 0}, "방민준": {"건보추나": 12, "TA추나": 4}}, "chuna_daily": [{"날짜": "2026-04-20", "원장명": "노왕식", "건보추나": 3, "TA추나": 2}, {"날짜": "2026-04-21", "원장명": "노왕식", "건보추나": 3, "TA추나": 8}, {"날짜": "2026-04-22", "원장명": "방민준", "건보추나": 4, "TA추나": 3}, {"날짜": "2026-04-23", "원장명": "노왕식", "건보추나": 5, "TA추나": 8}, {"날짜": "2026-04-23", "원장명": "방민준", "건보추나": 3, "TA추나": 0}, {"날짜": "2026-04-24", "원장명": "노왕식", "건보추나": 5, "TA추나": 9}, {"날짜": "2026-04-25", "원장명": "노왕식", "건보추나": 3, "TA추나": 5}, {"날짜": "2026-04-26", "원장명": "방민준", "건보추나": 5, "TA추나": 1}], "doc_revenue": {"김한중": {"건보": 4510960, "자보": 3042490, "비급여": 414600, "린다이어트": 0}, "노왕식": {"건보": 4734540, "자보": 4279340, "비급여": 2304500, "린다이어트": 910000}, "방민준": {"건보": 1988710, "자보": 385970, "비급여": 268100, "린다이어트": 0}, "배용빈": {"건보": 5079880, "자보": 2888910, "비급여": 280600, "린다이어트": 0}}, "retention": {"김한중": {"cohort": 28, "revisit": 19, "third": 12, "revisit_rate": 67.9, "third_rate": 42.9}, "노왕식": {"cohort": 23, "revisit": 20, "third": 15, "revisit_rate": 87.0, "third_rate": 65.2}, "배용빈": {"cohort": 22, "revisit": 17, "third": 13, "revisit_rate": 77.3, "third_rate": 59.1}}}, {"label": "2026-04-27", "label_display": "04/27(월)~05/03(일)", "kbo": 21731200, "jbo": 11208710, "nins": 17068000, "linda": 3720000, "revisit_rate": 88.3, "new_patients": 44, "chuna": {"노왕식": {"건보추나": 23, "TA추나": 24}, "이문환": {"건보추나": 17, "TA추나": 15}, "방민준": {"건보추나": 18, "TA추나": 35}}, "chuna_daily": [{"날짜": "2026-04-27", "원장명": "노왕식", "건보추나": 1, "TA추나": 3}, {"날짜": "2026-04-27", "원장명": "방민준", "건보추나": 2, "TA추나": 1}, {"날짜": "2026-04-27", "원장명": "이문환", "건보추나": 2, "TA추나": 2}, {"날짜": "2026-04-28", "원장명": "노왕식", "건보추나": 4, "TA추나": 6}, {"날짜": "2026-04-28", "원장명": "방민준", "건보추나": 5, "TA추나": 9}, {"날짜": "2026-04-28", "원장명": "이문환", "건보추나": 2, "TA추나": 0}, {"날짜": "2026-04-29", "원장명": "방민준", "건보추나": 1, "TA추나": 10}, {"날짜": "2026-04-29", "원장명": "이문환", "건보추나": 0, "TA추나": 2}, {"날짜": "2026-04-30", "원장명": "노왕식", "건보추나": 4, "TA추나": 4}, {"날짜": "2026-04-30", "원장명": "방민준", "건보추나": 6, "TA추나": 10}, {"날짜": "2026-05-01", "원장명": "노왕식", "건보추나": 6, "TA추나": 3}, {"날짜": "2026-05-01", "원장명": "이문환", "건보추나": 5, "TA추나": 4}, {"날짜": "2026-05-02", "원장명": "노왕식", "건보추나": 8, "TA추나": 8}, {"날짜": "2026-05-02", "원장명": "이문환", "건보추나": 8, "TA추나": 7}, {"날짜": "2026-05-03", "원장명": "방민준", "건보추나": 4, "TA추나": 5}], "doc_revenue": {"김한중": {"건보": 773090, "자보": 738180, "비급여": 257100, "린다이어트": 0}, "노왕식": {"건보": 5304320, "자보": 3060960, "비급여": 3187500, "린다이어트": 1850000}, "방민준": {"건보": 4200910, "자보": 4167640, "비급여": 1747100, "린다이어트": 0}, "배용빈": {"건보": 3099630, "자보": 1156690, "비급여": 230000, "린다이어트": 20000}, "이문환": {"건보": 2245340, "자보": 2024570, "비급여": 350900, "린다이어트": 0}}, "retention": {"김한중": {"cohort": 26, "revisit": 17, "third": 13, "revisit_rate": 65.4, "third_rate": 50.0}, "노왕식": {"cohort": 23, "revisit": 17, "third": 13, "revisit_rate": 73.9, "third_rate": 56.5}, "배용빈": {"cohort": 18, "revisit": 13, "third": 12, "revisit_rate": 72.2, "third_rate": 66.7}}}, {"label": "2026-05-04", "label_display": "05/04(월)~05/10(일)", "kbo": 21322990, "jbo": 11264670, "nins": 17900700, "linda": 2350000, "revisit_rate": 90.2, "new_patients": 47, "chuna": {"노왕식": {"건보추나": 30, "TA추나": 29}, "이문환": {"건보추나": 29, "TA추나": 42}, "방민준": {"건보추나": 22, "TA추나": 31}}, "chuna_daily": [{"날짜": "2026-05-04", "원장명": "노왕식", "건보추나": 4, "TA추나": 3}, {"날짜": "2026-05-04", "원장명": "방민준", "건보추나": 7, "TA추나": 10}, {"날짜": "2026-05-04", "원장명": "이문환", "건보추나": 7, "TA추나": 5}, {"날짜": "2026-05-05", "원장명": "노왕식", "건보추나": 8, "TA추나": 4}, {"날짜": "2026-05-05", "원장명": "방민준", "건보추나": 5, "TA추나": 3}, {"날짜": "2026-05-05", "원장명": "이문환", "건보추나": 6, "TA추나": 3}, {"날짜": "2026-05-06", "원장명": "방민준", "건보추나": 1, "TA추나": 7}, {"날짜": "2026-05-06", "원장명": "이문환", "건보추나": 6, "TA추나": 14}, {"날짜": "2026-05-07", "원장명": "노왕식", "건보추나": 7, "TA추나": 8}, {"날짜": "2026-05-07", "원장명": "방민준", "건보추나": 9, "TA추나": 11}, {"날짜": "2026-05-08", "원장명": "노왕식", "건보추나": 5, "TA추나": 7}, {"날짜": "2026-05-08", "원장명": "이문환", "건보추나": 6, "TA추나": 12}, {"날짜": "2026-05-09", "원장명": "노왕식", "건보추나": 6, "TA추나": 7}, {"날짜": "2026-05-09", "원장명": "이문환", "건보추나": 4, "TA추나": 8}], "doc_revenue": {"노왕식": {"건보": 5316680, "자보": 2767240, "비급여": 4432400, "린다이어트": 940000}, "방민준": {"건보": 5251000, "자보": 4644830, "비급여": 1232090, "린다이어트": 0}, "이문환": {"건보": 3900420, "자보": 4629010, "비급여": 860700, "린다이어트": 0}}, "retention": {"김한중": {"cohort": 37, "revisit": 23, "third": 20, "revisit_rate": 62.2, "third_rate": 54.1}, "노왕식": {"cohort": 23, "revisit": 18, "third": 13, "revisit_rate": 78.3, "third_rate": 56.5}, "배용빈": {"cohort": 18, "revisit": 14, "third": 10, "revisit_rate": 77.8, "third_rate": 55.6}}}];
+var currentIdx = allWeeks.length > 0 ? allWeeks.length - 1 : 0;
+var chunaDoctors  = ["노왕식", "이문환", "방민준"];
+var docColorMap   = {"노왕식": "#3b82f6", "이문환": "#10b981", "방민준": "#f59e0b", "배용빈": "#f472b6", "김한중": "#38bdf8"};
+var retroDoc   = chunaDoctors[0] || '노왕식';
+
+function fmtWon(n) {
+  return Math.floor(n / 10000).toLocaleString() + '만원';
+}
+function color(doc) {
+  return docColorMap[doc] || '#94a3b8';
+}
+
+// ── 파이차트 (원장별 매출) ────────────────────────────────
+var docRevPieChart = new Chart(document.getElementById('docRevPie'), {
+  type: 'doughnut',
+  data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0 }] },
+  options: {
+    plugins: { legend: { labels: { color:'#94a3b8', font:{size:11} } } },
+    cutout: '60%'
+  }
+});
+
+// ── 파이차트 (추나 비율) ──────────────────────────────────
+var chunaPieChart = new Chart(document.getElementById('chunaPie'), {
+  type: 'doughnut',
+  data: {
+    labels: chunaDoctors,
+    datasets: [{ data: [0,0,0], backgroundColor: ['#3b82f6','#10b981','#f59e0b'], borderWidth:0 }]
+  },
+  options: {
+    plugins: { legend: { labels: { color:'#94a3b8', font:{size:12} } } },
+    cutout: '60%'
+  }
+});
+
+// ── 주간 전체 렌더링 ──────────────────────────────────────
+function renderWeek(idx) {
+  if (allWeeks.length === 0) return;
+  var week = allWeeks[idx];
+
+  // 헤더
+  document.getElementById('weekLabel').textContent          = week.label_display;
+  document.getElementById('weekSectionTitle').textContent   = '주간 현황 — ' + week.label_display;
+  document.getElementById('docRevSectionTitle').textContent = '원장별 매출 현황 — ' + week.label_display;
+  document.getElementById('chunaSectionTitle').textContent  = '원장별 추나 현황 — ' + week.label_display;
+  document.getElementById('weekDetailTitle').textContent    = week.label_display + ' 일별 추나 상세';
+
+  // KPI 카드
+  document.getElementById('card-kbo').textContent     = fmtWon(week.kbo);
+  document.getElementById('card-jbo').textContent     = fmtWon(week.jbo);
+  document.getElementById('card-nins').textContent    = fmtWon(week.nins);
+  document.getElementById('card-linda').textContent   = fmtWon(week.linda);
+  document.getElementById('card-revisit').textContent = week.revisit_rate + '%';
+  document.getElementById('card-newpat').textContent  = week.new_patients + '명';
+
+  // ── 원장별 매출 테이블 ──────────────────────────────────
+  var dr = week.doc_revenue || {};
+  var drDocs = Object.keys(dr).sort(function(a,b) {
+    var order = ['노왕식','이문환','방민준','배용빈','김한중'];
+    return (order.indexOf(a)+1||99) - (order.indexOf(b)+1||99);
+  });
+
+  if (drDocs.length > 0) {
+    var tKbo=0, tJbo=0, tNins=0, tLinda=0;
+    var drtbl = '<table class="chuna-table" style="width:100%;table-layout:fixed">' +
+      '<colgroup>' +
+      '<col style="width:16%"><col style="width:16%"><col style="width:16%">' +
+      '<col style="width:18%"><col style="width:16%"><col style="width:18%">' +
+      '</colgroup>' +
+      '<thead><tr>' +
+      '<th style="padding-left:11px">원장</th>' +
+      '<th class="num">건보매출</th><th class="num">자보매출</th>' +
+      '<th class="num">비급여매출</th><th class="num">린다이어트</th><th class="num bold">합계</th>' +
+      '</tr></thead><tbody>';
+    for (var i=0; i<drDocs.length; i++) {
+      var r  = dr[drDocs[i]];
+      var k  = r['건보']||0, j = r['자보']||0, n = r['비급여']||0, l = r['린다이어트']||0;
+      var tot = k+j+n+l;
+      tKbo+=k; tJbo+=j; tNins+=n; tLinda+=l;
+      drtbl += '<tr>' +
+        '<td class="doc-name" style="border-left:3px solid ' + color(drDocs[i]) + ';padding-left:8px">' + drDocs[i] + '</td>' +
+        '<td class="num">' + fmtWon(k) + '</td>' +
+        '<td class="num">' + fmtWon(j) + '</td>' +
+        '<td class="num">' + fmtWon(n) + '</td>' +
+        '<td class="num">' + fmtWon(l) + '</td>' +
+        '<td class="num bold">' + fmtWon(tot) + '</td></tr>';
+    }
+    drtbl += '<tr class="total-row"><td style="padding-left:11px">합계</td>' +
+      '<td class="num">' + fmtWon(tKbo)   + '</td>' +
+      '<td class="num">' + fmtWon(tJbo)   + '</td>' +
+      '<td class="num">' + fmtWon(tNins)  + '</td>' +
+      '<td class="num">' + fmtWon(tLinda) + '</td>' +
+      '<td class="num bold">' + fmtWon(tKbo+tJbo+tNins+tLinda) + '</td></tr>';
+    drtbl += '</tbody></table>';
+    document.getElementById('docRevTableContainer').innerHTML = drtbl;
+
+    // 매출 파이차트
+    docRevPieChart.data.labels = drDocs;
+    docRevPieChart.data.datasets[0].data = drDocs.map(function(d) {
+      var r = dr[d]; return (r['건보']||0)+(r['자보']||0)+(r['비급여']||0)+(r['린다이어트']||0);
+    });
+    docRevPieChart.data.datasets[0].backgroundColor = drDocs.map(color);
+    docRevPieChart.update();
+  } else {
+    document.getElementById('docRevTableContainer').innerHTML =
+      '<p style="color:#475569;font-size:0.82rem;padding:12px">이 주에는 원장별 매출 데이터가 없습니다.</p>';
+  }
+
+  // ── 재진/삼진률 테이블 ──────────────────────────────────
+  var cohortWeekStart = new Date(week.label);
+  cohortWeekStart.setDate(cohortWeekStart.getDate() - 21);
+  var cohortWeekEnd = new Date(cohortWeekStart);
+  cohortWeekEnd.setDate(cohortWeekEnd.getDate() + 6);
+  var fmt2 = function(d) { return (d.getMonth()+1) + '/' + d.getDate(); };
+  document.getElementById('retSectionTitle').textContent  =
+    '원장별 재진/삼진률 — ' + week.label_display;
+  document.getElementById('retTableTitle').textContent =
+    '코호트: ' + fmt2(cohortWeekStart) + '(월)~' + fmt2(cohortWeekEnd) + '(일) 초진/재초진 환자';
+
+  var rt = week.retention || {};
+  var rtDocs = Object.keys(rt).sort(function(a,b) {
+    var order = ['노왕식','이문환','방민준','배용빈','김한중'];
+    return (order.indexOf(a)+1||99) - (order.indexOf(b)+1||99);
+  });
+
+  if (rtDocs.length > 0) {
+    var rttbl =
+      '<table class="chuna-table" style="width:100%;table-layout:fixed">' +
+      '<colgroup>' +
+      '<col style="width:16%"><col style="width:14%"><col style="width:14%">' +
+      '<col style="width:14%"><col style="width:14%"><col style="width:14%"><col style="width:14%">' +
+      '</colgroup>' +
+      '<thead><tr>' +
+      '<th style="padding-left:11px">원장</th>' +
+      '<th class="num">코호트</th>' +
+      '<th class="num">재진 수</th><th class="num">재진률</th>' +
+      '<th class="num">삼진 수</th><th class="num">삼진률</th>' +
+      '<th class="num">비고</th>' +
+      '</tr></thead><tbody>';
+    for (var i=0; i<rtDocs.length; i++) {
+      var r = rt[rtDocs[i]];
+      var revColor = r.revisit_rate >= 60 ? '#10b981' : r.revisit_rate >= 40 ? '#f59e0b' : '#ef4444';
+      var thiColor = r.third_rate  >= 40 ? '#10b981' : r.third_rate  >= 25 ? '#f59e0b' : '#ef4444';
+      rttbl += '<tr>' +
+        '<td class="doc-name" style="border-left:3px solid ' + color(rtDocs[i]) + ';padding-left:8px">' + rtDocs[i] + '</td>' +
+        '<td class="num">' + r.cohort + '명</td>' +
+        '<td class="num">' + r.revisit + '명</td>' +
+        '<td class="num" style="color:' + revColor + ';font-weight:700">' + r.revisit_rate + '%</td>' +
+        '<td class="num">' + r.third + '명</td>' +
+        '<td class="num" style="color:' + thiColor + ';font-weight:700">' + r.third_rate + '%</td>' +
+        '<td class="num" style="color:#475569;font-size:0.75rem">n=' + r.cohort + '</td>' +
+        '</tr>';
+    }
+    rttbl += '</tbody></table>' +
+      '<p style="color:#475569;font-size:0.72rem;margin-top:8px;padding:0 4px">' +
+      '* 초진 담당 원장 기준 · 클리닉 전체 재방문 카운트 · 재진률 ≥60% 🟢 ≥40% 🟡 &lt;40% 🔴</p>';
+    document.getElementById('retTableContainer').innerHTML = rttbl;
+  } else {
+    document.getElementById('retTableContainer').innerHTML =
+      '<p style="color:#475569;font-size:0.82rem;padding:12px">이 주에는 재진/삼진률 데이터가 없습니다.<br>' +
+      '<span style="font-size:0.75rem">read_retention.py를 실행하면 데이터가 채워집니다.</span></p>';
+  }
+
+  // ── 추나 합계 테이블 ────────────────────────────────────
+  var tG=0, tT=0;
+  var ctbody = '';
+  for (var i=0; i<chunaDoctors.length; i++) {
+    var c = week.chuna[chunaDoctors[i]] || {'건보추나':0,'TA추나':0};
+    var row = c['건보추나']+c['TA추나'];
+    tG+=c['건보추나']; tT+=c['TA추나'];
+    ctbody += '<tr><td class="doc-name">' + chunaDoctors[i] + '</td>' +
+      '<td class="num">' + c['건보추나'] + '</td>' +
+      '<td class="num">' + c['TA추나'] + '</td>' +
+      '<td class="num bold">' + row + '</td></tr>';
+  }
+  ctbody += '<tr class="total-row"><td>합계</td>' +
+    '<td class="num">' + tG + '</td><td class="num">' + tT + '</td>' +
+    '<td class="num bold">' + (tG+tT) + '</td></tr>';
+  document.getElementById('chunaSummaryBody').innerHTML = ctbody;
+
+  chunaPieChart.data.datasets[0].data = chunaDoctors.map(function(d) {
+    var c = week.chuna[d]||{'건보추나':0,'TA추나':0};
+    return c['건보추나']+c['TA추나'];
+  });
+  chunaPieChart.update();
+
+  // ── 추나 일별 상세 ──────────────────────────────────────
+  var dateMap = {};
+  for (var i=0; i<week.chuna_daily.length; i++) dateMap[week.chuna_daily[i]['날짜']] = true;
+  var dates = Object.keys(dateMap).sort();
+  var dthtml = '';
+  if (dates.length === 0) {
+    dthtml = '<p style="color:#475569;font-size:0.82rem;padding:12px">이 주에는 추나 데이터가 없습니다.</p>';
+  } else {
+    var dColW = Math.floor(90 / (chunaDoctors.length * 2));
+    dthtml = '<table class="chuna-table">' +
+      '<colgroup><col style="width:10%">';
+    for (var ci=0; ci<chunaDoctors.length*2; ci++) dthtml += '<col style="width:' + dColW + '%">';
+    dthtml += '</colgroup><thead><tr><th>날짜</th>';
+    for (var i=0; i<chunaDoctors.length; i++) dthtml += '<th class="num" colspan="2">' + chunaDoctors[i] + '</th>';
+    dthtml += '</tr><tr><th></th>';
+    for (var i=0; i<chunaDoctors.length; i++) dthtml += '<th class="num">건보</th><th class="num">TA</th>';
+    dthtml += '</tr></thead><tbody>';
+    for (var di=0; di<dates.length; di++) {
+      dthtml += '<tr><td>' + dates[di].slice(5) + '</td>';
+      for (var dj=0; dj<chunaDoctors.length; dj++) {
+        var entry=null;
+        for (var k=0; k<week.chuna_daily.length; k++) {
+          if (week.chuna_daily[k]['날짜']===dates[di] && week.chuna_daily[k]['원장명']===chunaDoctors[dj]) {
+            entry=week.chuna_daily[k]; break;
+          }
+        }
+        dthtml += entry
+          ? '<td class="num">'+entry['건보추나']+'</td><td class="num">'+entry['TA추나']+'</td>'
+          : '<td class="num">-</td><td class="num">-</td>';
+      }
+      dthtml += '</tr>';
+    }
+    dthtml += '<tr class="total-row"><td>합계</td>';
+    for (var i=0; i<chunaDoctors.length; i++) {
+      var t = week.chuna[chunaDoctors[i]]||{'건보추나':0,'TA추나':0};
+      dthtml += '<td class="num">'+t['건보추나']+'</td><td class="num">'+t['TA추나']+'</td>';
+    }
+    dthtml += '</tr></tbody></table>';
+  }
+  document.getElementById('weekDetailContainer').innerHTML = dthtml;
+
+  document.getElementById('prevWeek').disabled = (idx===0);
+  document.getElementById('nextWeek').disabled = (idx===allWeeks.length-1);
+
+  // ── 주간 회고 ────────────────────────────────────────────
+  document.getElementById('retroSectionTitle').textContent = '📗 주간 회고 — ' + week.label_display;
+  renderRetroTabs(week.label);
+  renderRetroForm(week.label, retroDoc);
+}
+
+function changeWeek(dir) {
+  currentIdx = Math.max(0, Math.min(allWeeks.length-1, currentIdx+dir));
+  renderWeek(currentIdx);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ── 주간 회고 함수 ────────────────────────────────────────
+function retroKey(weekLabel, doc) {
+  return 'retro__' + weekLabel + '__' + doc;
+}
+
+function loadRetroData(weekLabel, doc) {
+  var raw = localStorage.getItem(retroKey(weekLabel, doc));
+  return raw ? JSON.parse(raw) : {good:'', bad:'', plan:''};
+}
+
+function saveRetroData(weekLabel, doc) {
+  var d = {
+    good: document.getElementById('retro-good').value,
+    bad:  document.getElementById('retro-bad').value,
+    plan: document.getElementById('retro-plan').value,
+  };
+  localStorage.setItem(retroKey(weekLabel, doc), JSON.stringify(d));
+  var msg = document.getElementById('retro-saved');
+  msg.style.display = 'inline';
+  setTimeout(function(){ msg.style.display='none'; }, 2000);
+  // 탭에 ✓ 표시 갱신
+  renderRetroTabs(weekLabel);
+  // 저장 후 같은 doc 폼 유지
+  var tabs = document.querySelectorAll('.retro-tab');
+  tabs.forEach(function(t){ t.classList.toggle('active', t.dataset.doc===doc); });
+}
+
+function renderRetroTabs(weekLabel) {
+  var tabsHtml = '';
+  for (var i=0; i<chunaDoctors.length; i++) {
+    var doc = chunaDoctors[i];
+    var d   = loadRetroData(weekLabel, doc);
+    var hasData = d.good.trim() || d.bad.trim() || d.plan.trim();
+    tabsHtml +=
+      '<button class="retro-tab' + (doc===retroDoc?' active':'') + '" ' +
+      'data-doc="' + doc + '" ' +
+      'onclick="switchRetroDoc(allWeeks[currentIdx].label, chunaDoctors[' + i + '])">' +
+      doc + (hasData ? '<span class="has-data">&#10003;</span>' : '') +
+      '</button>';
+  }
+  document.getElementById('retroTabs').innerHTML = tabsHtml;
+}
+
+function switchRetroDoc(weekLabel, doc) {
+  retroDoc = doc;
+  renderRetroTabs(weekLabel);
+  renderRetroForm(weekLabel, doc);
+}
+
+function renderRetroForm(weekLabel, doc) {
+  var d = loadRetroData(weekLabel, doc);
+  document.getElementById('retroContent').innerHTML =
+    '<div class="retro-field">' +
+    '<label>✅ 잘한 점 — 반드시 1가지 이상 (행동 기준)</label>' +
+    '<textarea id="retro-good" class="retro-textarea" ' +
+    'placeholder="어떤 행동이었는지 구체적으로 작성...">' + escHtml(d.good) + '</textarea>' +
+    '<p class="retro-hint">잘한 점은 다음 주에도 반복해야 할 행동이다.</p></div>' +
+
+    '<div class="retro-field">' +
+    '<label>🔶 아쉬웠던 점 / 막혔던 지점</label>' +
+    '<textarea id="retro-bad" class="retro-textarea" ' +
+    'placeholder="변명 없이, 상황 설명 위주로...">' + escHtml(d.bad) + '</textarea>' +
+    '<p class="retro-hint">자책이 아니라 정확한 인식이 목적이다.</p></div>' +
+
+    '<div class="retro-field">' +
+    '<label>📌 다음 주를 위한 실행 계획 (최대 2개)</label>' +
+    '<textarea id="retro-plan" class="retro-textarea" ' +
+    'placeholder="반드시 구체적인 행동으로...">' + escHtml(d.plan) + '</textarea>' +
+    '<p class="retro-hint">목표는 완벽이 아니라 한 단계 개선이다.</p></div>' +
+
+    '<div class="retro-actions">' +
+    '<button class="retro-save-btn" ' +
+    'onclick="saveRetroData(allWeeks[currentIdx].label, retroDoc)">&#128190; 저장</button>' +
+    '<span id="retro-saved" class="retro-saved">&#10003; 저장됨</span>' +
+    '</div>';
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── 고정 차트들 ───────────────────────────────────────────
+
+// 주간 건보추나 바차트
+new Chart(document.getElementById('chunaBar'), {
+  type: 'bar',
+  data: { labels:["2026-02-16", "2026-02-23", "2026-03-02", "2026-03-09", "2026-03-16", "2026-03-23", "2026-03-30", "2026-04-06", "2026-04-13", "2026-04-20", "2026-04-27", "2026-05-04"], datasets:[{"label": "노왕식", "data": [15, 23, 23, 23, 27, 17, 24, 23, 20, 19, 23, 30], "backgroundColor": "#3b82f680", "borderColor": "#3b82f6", "borderWidth": 1}, {"label": "이문환", "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 29], "backgroundColor": "#10b98180", "borderColor": "#10b981", "borderWidth": 1}, {"label": "방민준", "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 18, 22], "backgroundColor": "#f59e0b80", "borderColor": "#f59e0b", "borderWidth": 1}] },
+  options: {
+    responsive:true,
+    plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+    scales:{
+      x:{ ticks:{ color:'#64748b', maxRotation:45 }, grid:{ color:'#1e293b' } },
+      y:{ ticks:{ color:'#64748b' }, grid:{ color:'#334155' }, beginAtZero:true }
+    }
+  }
+});
+
+// 월별 건보추나 바차트
+new Chart(document.getElementById('chunaMonthBar'), {
+  type: 'bar',
+  data: { labels:["2025.12", "2026.01", "2026.02", "2026.03", "2026.04", "2026.05"], datasets:[{"label": "노왕식", "data": [116, 109, 101, 99, 86, 44], "backgroundColor": "#3b82f680", "borderColor": "#3b82f6", "borderWidth": 1}, {"label": "이문환", "data": [0, 0, 0, 0, 4, 42], "backgroundColor": "#10b98180", "borderColor": "#10b981", "borderWidth": 1}, {"label": "방민준", "data": [0, 0, 0, 0, 26, 26], "backgroundColor": "#f59e0b80", "borderColor": "#f59e0b", "borderWidth": 1}] },
+  options: {
+    responsive:true,
+    plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+    scales:{
+      x:{ ticks:{ color:'#64748b' }, grid:{ color:'#1e293b' } },
+      y:{ ticks:{ color:'#64748b' }, grid:{ color:'#334155' }, beginAtZero:true }
+    }
+  }
+});
+
+// 월별 원장별 총매출 바차트
+new Chart(document.getElementById('docMonthBar'), {
+  type: 'bar',
+  data: { labels:["2025.12", "2026.01", "2026.02", "2026.03", "2026.04", "2026.05"], datasets:[{"label": "김한중", "data": [39719470, 38546720, 32901750, 50747030, 38253300, 0], "backgroundColor": "#38bdf880", "borderColor": "#38bdf8", "borderWidth": 1}, {"label": "노왕식", "data": [44900210, 53659100, 41258900, 46509680, 52412270, 17611580], "backgroundColor": "#3b82f680", "borderColor": "#3b82f6", "borderWidth": 1}, {"label": "방민준", "data": [0, 0, 0, 0, 9847140, 14039210], "backgroundColor": "#f59e0b80", "borderColor": "#f59e0b", "borderWidth": 1}, {"label": "배용빈", "data": [44323950, 51971920, 38219710, 56751200, 45059250, 0], "backgroundColor": "#f472b680", "borderColor": "#f472b6", "borderWidth": 1}, {"label": "이문환", "data": [0, 0, 0, 0, 1372270, 12638670], "backgroundColor": "#10b98180", "borderColor": "#10b981", "borderWidth": 1}] },
+  options: {
+    responsive:true,
+    plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+    scales:{
+      x:{ ticks:{ color:'#64748b' }, grid:{ color:'#1e293b' } },
+      y:{ ticks:{ color:'#64748b', callback:function(v){ return (v/10000).toFixed(0)+'만'; } },
+           grid:{ color:'#334155' }, beginAtZero:true }
+    }
+  }
+});
+
+// 전체 매출 바차트
+new Chart(document.getElementById('revBar'), {
+  type: 'bar',
+  data: {
+    labels:["2025.12", "2026.01", "2026.02", "2026.03", "2026.04", "2026.05"],
+    datasets:[
+      { label:'건보매출', data:[95382920, 99636950, 85233450, 98560210, 94717100, 30241440],  backgroundColor:'#3b82f680', borderColor:'#3b82f6', borderWidth:1 },
+      { label:'자보매출', data:[41477730, 43308290, 27335830, 51051990, 47014070, 14717160],  backgroundColor:'#10b98180', borderColor:'#10b981', borderWidth:1 },
+      { label:'비급여',   data:[65509300, 68799600, 50960900, 69358700, 65068680, 22023700], backgroundColor:'#f59e0b80', borderColor:'#f59e0b', borderWidth:1 }
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+    scales:{
+      x:{ ticks:{ color:'#64748b' }, grid:{ color:'#1e293b' } },
+      y:{ ticks:{ color:'#64748b', callback:function(v){ return (v/10000).toFixed(0)+'만'; } },
+           grid:{ color:'#334155' }, beginAtZero:true }
+    }
+  }
+});
+
+// 신환 바차트
+new Chart(document.getElementById('newPat'), {
+  type:'bar',
+  data:{
+    labels:["2025.12", "2026.01", "2026.02", "2026.03", "2026.04", "2026.05"],
+    datasets:[{ label:'신환 수', data:[194, 212, 172, 223, 228, 64],
+                 backgroundColor:'#a78bfa80', borderColor:'#a78bfa', borderWidth:1 }]
+  },
+  options:{
+    responsive:true,
+    plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+    scales:{
+      x:{ ticks:{ color:'#64748b' }, grid:{ color:'#1e293b' } },
+      y:{ ticks:{ color:'#64748b' }, grid:{ color:'#334155' }, beginAtZero:true }
+    }
+  }
+});
+
+// 초기 렌더
+if (allWeeks.length > 0) renderWeek(currentIdx);
+</script>
+</body>
+</html>

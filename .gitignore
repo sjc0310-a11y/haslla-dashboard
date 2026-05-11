@@ -1,0 +1,11 @@
+# 민감 데이터 제외 (DB 조회 원본 CSV)
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 임시 파일
+*.tmp
+*.log
