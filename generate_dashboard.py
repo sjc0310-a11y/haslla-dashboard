@@ -680,11 +680,12 @@ def build_html(data):
     <canvas id="newPat" height="80"></canvas>
   </div>
 
-  <!-- ═══ 주간 회고 (동적) ════════════════════════════════ -->
+  <!-- ═══ 주간 회고 (Notion DB 링크) ══════════════════════ -->
   <div class="section-title" id="retroSectionTitle">📗 주간 회고</div>
-  <div class="chart-box" id="retroBox">
-    <div class="retro-tabs" id="retroTabs"></div>
-    <div id="retroContent"></div>
+  <div class="chart-box" id="retroBox" style="text-align:center;padding:30px 20px">
+    <p style="color:#cbd5e1;font-size:0.9rem;margin-bottom:6px;font-weight:600">주간 회고는 Notion에서 작성하고 모든 원장이 함께 봅니다</p>
+    <p style="color:#64748b;font-size:0.78rem;margin-bottom:18px">잘한 점 · 아쉬웠던 점 · 다음 주 실행 계획</p>
+    <a href="https://www.notion.so/a59dc6c66fe94b31b78fee7770dc12aa" target="_blank" rel="noopener" style="display:inline-block;background:#3b82f6;color:#fff;padding:11px 26px;border-radius:8px;text-decoration:none;font-size:0.9rem;font-weight:600">📝 Notion에서 회고 작성·열람하기 →</a>
   </div>
 
 </div>
@@ -1029,10 +1030,8 @@ function renderWeek(idx) {{
   document.getElementById('prevWeek').disabled = (idx===0);
   document.getElementById('nextWeek').disabled = (idx===allWeeks.length-1);
 
-  // ── 주간 회고 ────────────────────────────────────────────
+  // ── 주간 회고 (Notion 링크 박스 — 주차 라벨만 갱신) ────
   document.getElementById('retroSectionTitle').textContent = '📗 주간 회고 — ' + week.label_display;
-  renderRetroTabs(week.label);
-  renderRetroForm(week.label, retroDoc);
 
   // ── 개인 KPI 배너 업데이트 ───────────────────────────────
   updateMyKpi(idx);
