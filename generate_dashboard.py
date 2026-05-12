@@ -528,6 +528,22 @@ def build_html(data):
 
 <div class="container">
 
+  <!-- ═══ 개인 KPI 배너 (동적) ════════════════════════════ -->
+  <div id="myKpiSection">
+    <div class="section-title" style="margin-top:4px">내 현황</div>
+    <div id="myKpiBanner">
+      <span class="my-name" id="myName">—</span>
+      <div class="my-kpi-card"><div class="mk-label">건보매출</div><div class="mk-value" id="my-kbo">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">자보매출</div><div class="mk-value" id="my-jbo">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">비급여매출</div><div class="mk-value" id="my-nins">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">린다이어트</div><div class="mk-value" id="my-linda">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">재진률</div><div class="mk-value" id="my-revisit">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">삼진률</div><div class="mk-value" id="my-third">—</div></div>
+      <div class="my-kpi-card"><div class="mk-label">건보추나</div><div class="mk-value" id="my-chuna">—</div></div>
+      <button class="change-btn" onclick="goHome()">🏠 홈으로</button>
+    </div>
+  </div>
+
   <!-- ═══ 주간 전체 지표 (홈 화면에서만 표시) ════════════ -->
   <div id="weekTotalSection" style="display:none">
     <div class="section-title" id="weekSectionTitle">주간 현황</div>
