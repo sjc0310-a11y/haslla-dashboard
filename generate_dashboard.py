@@ -754,7 +754,38 @@ var docRevPieChart = new Chart(document.getElementById('docRevPie'), {{
   type: 'doughnut',
   data: {{ labels: [], datasets: [{{ data: [], backgroundColor: [], borderWidth: 0 }}] }},
   options: {{
-    plugins: {{ legend: {{ labels: {{ color:'#94a3b8', font:{{size:11}} }} }} }},
+    plugins: {{
+      legend: {{
+        labels: {{
+          color:'#94a3b8', font:{{size:11}},
+          generateLabels: function(chart) {{
+            var ds = chart.data.datasets[0];
+            var total = (ds.data || []).reduce(function(a,b) {{ return a + (b||0); }}, 0);
+            return (chart.data.labels || []).map(function(label, i) {{
+              var v = ds.data[i] || 0;
+              var pct = total > 0 ? ((v/total)*100).toFixed(1) : '0.0';
+              return {{
+                text: label + ' ' + pct + '%',
+                fillStyle: ds.backgroundColor[i],
+                strokeStyle: ds.backgroundColor[i],
+                lineWidth: 0, hidden: false, index: i
+              }};
+            }});
+          }}
+        }}
+      }},
+      tooltip: {{
+        callbacks: {{
+          label: function(ctx) {{
+            var ds = ctx.dataset;
+            var total = ds.data.reduce(function(a,b) {{ return a + (b||0); }}, 0);
+            var v = ctx.parsed;
+            var pct = total > 0 ? ((v/total)*100).toFixed(1) : '0.0';
+            return ctx.label + ': ' + Math.floor(v/10000).toLocaleString() + '만원 (' + pct + '%)';
+          }}
+        }}
+      }}
+    }},
     cutout: '60%'
   }}
 }});
