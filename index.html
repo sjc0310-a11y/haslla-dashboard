@@ -131,7 +131,7 @@
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 12일 12:54 기준</span><br>
+    <span class="updated">2026년 05월 12일 12:57 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -221,12 +221,12 @@
     <div class="chart-box">
       <h3>추나 집계</h3>
       <table class="chuna-table">
-        <colgroup><col style="width:30%"><col style="width:23%"><col style="width:23%"><col style="width:24%"></colgroup>
+        <colgroup><col style="width:60%"><col style="width:40%"></colgroup>
         <thead>
-          <tr><th>원장</th><th class="num">건보추나</th><th class="num">TA추나</th><th class="num">합계</th></tr>
+          <tr><th>원장</th><th class="num">건보추나<br><span style="color:#475569;font-size:0.67rem;font-weight:400">목표 50건/주</span></th></tr>
         </thead>
         <tbody id="chunaSummaryBody">
-          <tr><td colspan="4" style="color:#475569;text-align:center">로딩 중...</td></tr>
+          <tr><td colspan="2" style="color:#475569;text-align:center">로딩 중...</td></tr>
         </tbody>
       </table>
     </div>
@@ -408,7 +408,38 @@ var chunaPieChart = new Chart(document.getElementById('chunaPie'), {
     datasets: [{ data: [0,0,0], backgroundColor: ['#3b82f6','#10b981','#f59e0b'], borderWidth:0 }]
   },
   options: {
-    plugins: { legend: { labels: { color:'#94a3b8', font:{size:12} } } },
+    plugins: {
+      legend: {
+        labels: {
+          color:'#94a3b8', font:{size:12},
+          generateLabels: function(chart) {
+            var ds = chart.data.datasets[0];
+            var total = (ds.data || []).reduce(function(a,b) { return a + (b||0); }, 0);
+            return (chart.data.labels || []).map(function(label, i) {
+              var v = ds.data[i] || 0;
+              var pct = total > 0 ? ((v/total)*100).toFixed(1) : '0.0';
+              return {
+                text: label + ' ' + pct + '%',
+                fillStyle: ds.backgroundColor[i],
+                strokeStyle: ds.backgroundColor[i],
+                lineWidth: 0, hidden: false, index: i
+              };
+            });
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) {
+            var ds = ctx.dataset;
+            var total = ds.data.reduce(function(a,b) { return a + (b||0); }, 0);
+            var v = ctx.parsed;
+            var pct = total > 0 ? ((v/total)*100).toFixed(1) : '0.0';
+            return ctx.label + ': ' + v + '건 (' + pct + '%)';
+          }
+        }
+      }
+    },
     cutout: '60%'
   }
 });
@@ -545,30 +576,28 @@ function renderWeek(idx) {
       '<span style="font-size:0.75rem">read_retention.py를 실행하면 데이터가 채워집니다.</span></p>';
   }
 
-  // ── 추나 합계 테이블 ────────────────────────────────────
-  var tG=0, tT=0;
+  // ── 추나 합계 테이블 (건보추나만, 50건/주 목표 신호등) ───
+  var tG=0;
   var ctbody = '';
   for (var i=0; i<chunaDoctors.length; i++) {
-    var c = week.chuna[chunaDoctors[i]] || {'건보추나':0,'TA추나':0};
-    var row = c['건보추나']+c['TA추나'];
-    tG+=c['건보추나']; tT+=c['TA추나'];
+    var c = week.chuna[chunaDoctors[i]] || {'건보추나':0};
+    var v = c['건보추나'] || 0;
+    tG += v;
+    var chColor = v >= 50 ? '#10b981' : v >= 35 ? '#f59e0b' : '#ef4444';
     ctbody += '<tr><td class="doc-name">' + chunaDoctors[i] + '</td>' +
-      '<td class="num">' + c['건보추나'] + '</td>' +
-      '<td class="num">' + c['TA추나'] + '</td>' +
-      '<td class="num bold">' + row + '</td></tr>';
+      '<td class="num" style="color:' + chColor + ';font-weight:700">' + v + '</td></tr>';
   }
   ctbody += '<tr class="total-row"><td>합계</td>' +
-    '<td class="num">' + tG + '</td><td class="num">' + tT + '</td>' +
-    '<td class="num bold">' + (tG+tT) + '</td></tr>';
+    '<td class="num bold">' + tG + '</td></tr>';
   document.getElementById('chunaSummaryBody').innerHTML = ctbody;
 
   chunaPieChart.data.datasets[0].data = chunaDoctors.map(function(d) {
-    var c = week.chuna[d]||{'건보추나':0,'TA추나':0};
-    return c['건보추나']+c['TA추나'];
+    var c = week.chuna[d]||{'건보추나':0};
+    return c['건보추나'] || 0;
   });
   chunaPieChart.update();
 
-  // ── 추나 일별 상세 ──────────────────────────────────────
+  // ── 추나 일별 상세 (건보추나만) ─────────────────────────
   var dateMap = {};
   for (var i=0; i<week.chuna_daily.length; i++) dateMap[week.chuna_daily[i]['날짜']] = true;
   var dates = Object.keys(dateMap).sort();
@@ -576,14 +605,12 @@ function renderWeek(idx) {
   if (dates.length === 0) {
     dthtml = '<p style="color:#475569;font-size:0.82rem;padding:12px">이 주에는 추나 데이터가 없습니다.</p>';
   } else {
-    var dColW = Math.floor(90 / (chunaDoctors.length * 2));
+    var dColW = Math.floor(90 / chunaDoctors.length);
     dthtml = '<table class="chuna-table">' +
       '<colgroup><col style="width:10%">';
-    for (var ci=0; ci<chunaDoctors.length*2; ci++) dthtml += '<col style="width:' + dColW + '%">';
+    for (var ci=0; ci<chunaDoctors.length; ci++) dthtml += '<col style="width:' + dColW + '%">';
     dthtml += '</colgroup><thead><tr><th>날짜</th>';
-    for (var i=0; i<chunaDoctors.length; i++) dthtml += '<th class="num" colspan="2">' + chunaDoctors[i] + '</th>';
-    dthtml += '</tr><tr><th></th>';
-    for (var i=0; i<chunaDoctors.length; i++) dthtml += '<th class="num">건보</th><th class="num">TA</th>';
+    for (var i=0; i<chunaDoctors.length; i++) dthtml += '<th class="num">' + chunaDoctors[i] + '</th>';
     dthtml += '</tr></thead><tbody>';
     for (var di=0; di<dates.length; di++) {
       dthtml += '<tr><td>' + dates[di].slice(5) + '</td>';
@@ -595,15 +622,15 @@ function renderWeek(idx) {
           }
         }
         dthtml += entry
-          ? '<td class="num">'+entry['건보추나']+'</td><td class="num">'+entry['TA추나']+'</td>'
-          : '<td class="num">-</td><td class="num">-</td>';
+          ? '<td class="num">'+entry['건보추나']+'</td>'
+          : '<td class="num">-</td>';
       }
       dthtml += '</tr>';
     }
     dthtml += '<tr class="total-row"><td>합계</td>';
     for (var i=0; i<chunaDoctors.length; i++) {
-      var t = week.chuna[chunaDoctors[i]]||{'건보추나':0,'TA추나':0};
-      dthtml += '<td class="num">'+t['건보추나']+'</td><td class="num">'+t['TA추나']+'</td>';
+      var t = week.chuna[chunaDoctors[i]]||{'건보추나':0};
+      dthtml += '<td class="num">'+(t['건보추나']||0)+'</td>';
     }
     dthtml += '</tr></tbody></table>';
   }
