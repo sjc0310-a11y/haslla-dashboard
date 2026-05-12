@@ -528,54 +528,40 @@ def build_html(data):
 
 <div class="container">
 
-  <!-- ═══ 개인 KPI 배너 (동적) ════════════════════════════ -->
-  <div id="myKpiSection">
-    <div class="section-title" style="margin-top:4px">내 현황</div>
-    <div id="myKpiBanner">
-      <span class="my-name" id="myName">—</span>
-      <div class="my-kpi-card"><div class="mk-label">건보매출</div><div class="mk-value" id="my-kbo">—</div></div>
-      <div class="my-kpi-card"><div class="mk-label">자보매출</div><div class="mk-value" id="my-jbo">—</div></div>
-      <div class="my-kpi-card"><div class="mk-label">비급여매출</div><div class="mk-value" id="my-nins">—</div></div>
-      <div class="my-kpi-card"><div class="mk-label">린다이어트</div><div class="mk-value" id="my-linda">—</div></div>
-      <div class="my-kpi-card"><div class="mk-label">재진률</div><div class="mk-value" id="my-revisit">—</div></div>
-      <div class="my-kpi-card"><div class="mk-label">삼진률</div><div class="mk-value" id="my-third">—</div></div>
-      <div class="my-kpi-card"><div class="mk-label">건보추나</div><div class="mk-value" id="my-chuna">—</div></div>
-      <button class="change-btn" onclick="goHome()">🏠 홈으로</button>
-    </div>
-  </div>
-
-  <!-- ═══ 주간 전체 지표 (동적) ══════════════════════════ -->
-  <div class="section-title" id="weekSectionTitle">주간 현황</div>
-  <div class="cards">
-    <div class="card highlight">
-      <div class="label">건보 매출</div>
-      <div class="value" id="card-kbo">—</div>
-      <div class="sub">본인부담 + 공단청구</div>
-    </div>
-    <div class="card green">
-      <div class="label">자보 매출</div>
-      <div class="value" id="card-jbo">—</div>
-      <div class="sub">자동차보험 청구</div>
-    </div>
-    <div class="card yellow">
-      <div class="label">비급여 매출</div>
-      <div class="value" id="card-nins">—</div>
-      <div class="sub">현금·카드 비급여</div>
-    </div>
-    <div class="card purple">
-      <div class="label">린다이어트 매출</div>
-      <div class="value" id="card-linda">—</div>
-      <div class="sub">린다이어트 관련 합계</div>
-    </div>
-    <div class="card">
-      <div class="label">재진율</div>
-      <div class="value" id="card-revisit">—</div>
-      <div class="sub">전체 내원 중 재진 비율</div>
-    </div>
-    <div class="card pink">
-      <div class="label">신환</div>
-      <div class="value" id="card-newpat">—</div>
-      <div class="sub">신규 환자 수</div>
+  <!-- ═══ 주간 전체 지표 (홈 화면에서만 표시) ════════════ -->
+  <div id="weekTotalSection" style="display:none">
+    <div class="section-title" id="weekSectionTitle">주간 현황</div>
+    <div class="cards">
+      <div class="card highlight">
+        <div class="label">건보 매출</div>
+        <div class="value" id="card-kbo">—</div>
+        <div class="sub">본인부담 + 공단청구</div>
+      </div>
+      <div class="card green">
+        <div class="label">자보 매출</div>
+        <div class="value" id="card-jbo">—</div>
+        <div class="sub">자동차보험 청구</div>
+      </div>
+      <div class="card yellow">
+        <div class="label">비급여 매출</div>
+        <div class="value" id="card-nins">—</div>
+        <div class="sub">현금·카드 비급여</div>
+      </div>
+      <div class="card purple">
+        <div class="label">린다이어트 매출</div>
+        <div class="value" id="card-linda">—</div>
+        <div class="sub">린다이어트 관련 합계</div>
+      </div>
+      <div class="card">
+        <div class="label">재진율</div>
+        <div class="value" id="card-revisit">—</div>
+        <div class="sub">전체 내원 중 재진 비율</div>
+      </div>
+      <div class="card pink">
+        <div class="label">신환</div>
+        <div class="value" id="card-newpat">—</div>
+        <div class="sub">신규 환자 수</div>
+      </div>
     </div>
   </div>
 
@@ -702,6 +688,8 @@ function selectDoctor(name) {{
   localStorage.setItem('haslla_myDoc', name);
   document.getElementById('selectScreen').style.display = 'none';
   document.getElementById('myKpiSection').style.display = 'block';
+  var wts = document.getElementById('weekTotalSection');
+  if (wts) wts.style.display = 'none';
   document.getElementById('myName').textContent = name + ' 원장님 👋';
   var hd = document.getElementById('headerDoc');
   if (hd) hd.textContent = name + ' 원장';
@@ -715,6 +703,8 @@ function changeDoctor() {{
 
 function goHome() {{
   document.getElementById('selectScreen').style.display = 'flex';
+  var wts = document.getElementById('weekTotalSection');
+  if (wts) wts.style.display = '';
   window.scrollTo({{top:0, behavior:'instant'}});
 }}
 
@@ -1154,6 +1144,9 @@ if (allWeeks.length > 0) {{
     document.getElementById('myName').textContent = myDoc + ' 원장님 👋';
     var hd = document.getElementById('headerDoc');
     if (hd) hd.textContent = myDoc + ' 원장';
+  }} else {{
+    var wts0 = document.getElementById('weekTotalSection');
+    if (wts0) wts0.style.display = '';
   }}
   renderWeek(currentIdx);
 }}
