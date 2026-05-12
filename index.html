@@ -91,6 +91,10 @@
   .change-btn{background:none;border:1px solid #334155;color:#64748b;padding:5px 12px;
                border-radius:6px;cursor:pointer;font-size:0.75rem;margin-left:auto;white-space:nowrap}
   .change-btn:hover{border-color:#94a3b8;color:#94a3b8}
+  .home-btn{background:#3b82f6;border:none;color:#fff;padding:7px 14px;
+             border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;
+             white-space:nowrap;transition:all 0.15s}
+  .home-btn:hover{background:#2563eb}
   @media(max-width:900px){
     .header{grid-template-columns:1fr;gap:8px}
     .header .updated{text-align:left}
@@ -101,10 +105,11 @@
 </head>
 <body>
 
-<!-- ══ 이름 선택 오버레이 ══════════════════════════════════ -->
+<!-- ══ 홈 화면 (이름 선택) ══════════════════════════════════ -->
 <div id="selectScreen">
-  <h2>🏥 하슬라한의원 대시보드</h2>
-  <p>원장을 선택해주세요</p>
+  <div style="font-size:2.2rem;margin-bottom:8px">🏥</div>
+  <h2>하슬라한의원 원장팀 대시보드</h2>
+  <p>본인의 대시보드를 선택하세요</p>
   <div class="select-btns">
     <button class="select-doc-btn" onclick="selectDoctor('노왕식')">노왕식 원장</button>
     <button class="select-doc-btn" onclick="selectDoctor('이문환')">이문환 원장</button>
@@ -112,17 +117,21 @@
     <button class="select-doc-btn" onclick="selectDoctor('배용빈')">배용빈 원장</button>
     <button class="select-doc-btn" onclick="selectDoctor('김한중')">김한중 원장</button>
   </div>
+  <p style="margin-top:20px;font-size:0.78rem;color:#475569">선택한 원장의 개인뷰가 표시됩니다. 언제든 홈 버튼으로 돌아올 수 있습니다.</p>
 </div>
 
 <div class="header">
-  <h1>🏥 하슬라한의원 경영 대시보드</h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="home-btn" onclick="goHome()" title="홈으로">🏠 홈</button>
+    <h1>🏥 하슬라한의원 경영 대시보드</h1>
+  </div>
   <div class="week-nav">
     <button id="prevWeek" onclick="changeWeek(-1)">← 이전 주</button>
     <span id="weekLabel">로딩 중...</span>
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 11일 22:25 기준</span><br>
+    <span class="updated">2026년 05월 12일 09:28 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -141,7 +150,7 @@
       <div class="my-kpi-card"><div class="mk-label">재진률</div><div class="mk-value" id="my-revisit">—</div></div>
       <div class="my-kpi-card"><div class="mk-label">삼진률</div><div class="mk-value" id="my-third">—</div></div>
       <div class="my-kpi-card"><div class="mk-label">건보추나</div><div class="mk-value" id="my-chuna">—</div></div>
-      <button class="change-btn" onclick="changeDoctor()">👤 변경</button>
+      <button class="change-btn" onclick="goHome()">🏠 홈으로</button>
     </div>
   </div>
 
@@ -311,6 +320,12 @@ function selectDoctor(name) {
 
 function changeDoctor() {
   document.getElementById('selectScreen').style.display = 'flex';
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+function goHome() {
+  document.getElementById('selectScreen').style.display = 'flex';
+  window.scrollTo({top:0, behavior:'instant'});
 }
 
 function updateMyKpi(idx) {
