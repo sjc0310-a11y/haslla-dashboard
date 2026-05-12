@@ -388,6 +388,9 @@ def build_html(data):
     # ── 전체 주간 JSON ────────────────────────────────────
     all_weeks_json = json.dumps(all_weeks, ensure_ascii=False)
 
+    # ── 노션 회고 JSON ────────────────────────────────────
+    retros_json = json.dumps(d.get("retros", []), ensure_ascii=False)
+
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -459,6 +462,8 @@ def build_html(data):
                    border-radius:6px;cursor:pointer;font-size:0.84rem;font-weight:600}}
   .retro-save-btn:hover{{background:#2563eb}}
   .retro-saved{{color:#10b981;font-size:0.78rem;display:none}}
+  .retro-text{{white-space:pre-wrap;color:#e2e8f0;font-size:0.86rem;line-height:1.65;
+               padding:11px 14px;background:#0f172a;border-radius:8px;border:1px solid #334155;margin-top:4px}}
   /* ── 이름 선택 오버레이 ── */
   #selectScreen{{position:fixed;inset:0;background:#0f172a;z-index:9999;
                 display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}}
@@ -680,12 +685,15 @@ def build_html(data):
     <canvas id="newPat" height="80"></canvas>
   </div>
 
-  <!-- ═══ 주간 회고 (Notion DB 링크) ══════════════════════ -->
+  <!-- ═══ 주간 회고 (노션 DB → 매일 자동 동기화) ══════════ -->
   <div class="section-title" id="retroSectionTitle">📗 주간 회고</div>
-  <div class="chart-box" id="retroBox" style="text-align:center;padding:30px 20px">
-    <p style="color:#cbd5e1;font-size:0.9rem;margin-bottom:6px;font-weight:600">주간 회고는 Notion에서 작성하고 모든 원장이 함께 봅니다</p>
-    <p style="color:#64748b;font-size:0.78rem;margin-bottom:18px">잘한 점 · 아쉬웠던 점 · 다음 주 실행 계획</p>
-    <a href="https://www.notion.so/a59dc6c66fe94b31b78fee7770dc12aa" target="_blank" rel="noopener" style="display:inline-block;background:#3b82f6;color:#fff;padding:11px 26px;border-radius:8px;text-decoration:none;font-size:0.9rem;font-weight:600">📝 Notion에서 회고 작성·열람하기 →</a>
+  <div class="chart-box" id="retroBox">
+    <div class="retro-tabs" id="retroTabs"></div>
+    <div id="retroContent"></div>
+    <div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid #334155">
+      <a href="https://www.notion.so/a59dc6c66fe94b31b78fee7770dc12aa" target="_blank" rel="noopener" style="display:inline-block;background:#3b82f6;color:#fff;padding:9px 22px;border-radius:8px;text-decoration:none;font-size:0.84rem;font-weight:600">📝 노션에서 작성·수정하기 →</a>
+      <p style="font-size:0.7rem;color:#475569;margin-top:7px">노션에서 변경한 내용은 매일 자동 동기화됩니다 (최대 24h 지연)</p>
+    </div>
   </div>
 
 </div>
@@ -697,6 +705,8 @@ var chunaDoctors  = {json.dumps(DOCTORS, ensure_ascii=False)};
 var docColorMap   = {doc_colors_json};
 var myDoc      = localStorage.getItem('haslla_myDoc') || null;
 var retroDoc   = myDoc || chunaDoctors[0] || '노왕식';
+var retros     = {retros_json};
+var retroSelectedDoc = null;
 
 // ── 원장 선택 / 개인뷰 ────────────────────────────────────
 function selectDoctor(name) {{
@@ -1030,8 +1040,9 @@ function renderWeek(idx) {{
   document.getElementById('prevWeek').disabled = (idx===0);
   document.getElementById('nextWeek').disabled = (idx===allWeeks.length-1);
 
-  // ── 주간 회고 (Notion 링크 박스 — 주차 라벨만 갱신) ────
+  // ── 주간 회고 (노션 동기화 데이터 렌더링) ────
   document.getElementById('retroSectionTitle').textContent = '📗 주간 회고 — ' + week.label_display;
+  renderRetroBox(week.label);
 
   // ── 개인 KPI 배너 업데이트 ───────────────────────────────
   updateMyKpi(idx);
@@ -1043,85 +1054,56 @@ function changeWeek(dir) {{
   window.scrollTo({{top:0, behavior:'smooth'}});
 }}
 
-// ── 주간 회고 함수 ────────────────────────────────────────
-function retroKey(weekLabel, doc) {{
-  return 'retro__' + weekLabel + '__' + doc;
+// ── 주간 회고 함수 (노션 동기화 단방향 읽기) ──────────────
+function escHtml(s) {{
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }}
 
-function loadRetroData(weekLabel, doc) {{
-  var raw = localStorage.getItem(retroKey(weekLabel, doc));
-  return raw ? JSON.parse(raw) : {{good:'', bad:'', plan:''}};
+function findRetro(weekLabel, doc) {{
+  for (var i=0; i<retros.length; i++) {{
+    if (retros[i].week_label === weekLabel && retros[i].doctor === doc) return retros[i];
+  }}
+  return null;
 }}
 
-function saveRetroData(weekLabel, doc) {{
-  var d = {{
-    good: document.getElementById('retro-good').value,
-    bad:  document.getElementById('retro-bad').value,
-    plan: document.getElementById('retro-plan').value,
-  }};
-  localStorage.setItem(retroKey(weekLabel, doc), JSON.stringify(d));
-  var msg = document.getElementById('retro-saved');
-  msg.style.display = 'inline';
-  setTimeout(function(){{ msg.style.display='none'; }}, 2000);
-  // 탭에 ✓ 표시 갱신
-  renderRetroTabs(weekLabel);
-  // 저장 후 같은 doc 폼 유지
-  var tabs = document.querySelectorAll('.retro-tab');
-  tabs.forEach(function(t){{ t.classList.toggle('active', t.dataset.doc===doc); }});
-}}
+function renderRetroBox(weekLabel) {{
+  if (!retroSelectedDoc) retroSelectedDoc = myDoc || chunaDoctors[0] || '노왕식';
 
-function renderRetroTabs(weekLabel) {{
+  // 탭
   var tabsHtml = '';
   for (var i=0; i<chunaDoctors.length; i++) {{
     var doc = chunaDoctors[i];
-    var d   = loadRetroData(weekLabel, doc);
-    var hasData = d.good.trim() || d.bad.trim() || d.plan.trim();
+    var has = !!findRetro(weekLabel, doc);
     tabsHtml +=
-      '<button class="retro-tab' + (doc===retroDoc?' active':'') + '" ' +
-      'data-doc="' + doc + '" ' +
-      'onclick="switchRetroDoc(allWeeks[currentIdx].label, chunaDoctors[' + i + '])">' +
-      doc + (hasData ? '<span class="has-data">&#10003;</span>' : '') +
+      '<button class="retro-tab' + (doc===retroSelectedDoc?' active':'') + '" ' +
+      'onclick="selectRetroDoc(\\'' + doc + '\\')">' +
+      doc + (has ? '<span class="has-data">&#10003;</span>' : '') +
       '</button>';
   }}
   document.getElementById('retroTabs').innerHTML = tabsHtml;
+
+  // 내용
+  var r = findRetro(weekLabel, retroSelectedDoc);
+  var content;
+  if (r) {{
+    var link = r.page_url
+      ? '<div style="text-align:right;margin-bottom:8px"><a href="' + r.page_url + '" target="_blank" rel="noopener" style="color:#60a5fa;font-size:0.72rem;text-decoration:none">노션에서 열기 →</a></div>'
+      : '';
+    content = link +
+      '<div class="retro-field"><label>✅ 잘한 점</label><div class="retro-text">' + (escHtml(r.good) || '<span style="color:#475569">(비어있음)</span>') + '</div></div>' +
+      '<div class="retro-field"><label>🔶 아쉬웠던 점</label><div class="retro-text">' + (escHtml(r.bad) || '<span style="color:#475569">(비어있음)</span>') + '</div></div>' +
+      '<div class="retro-field"><label>📌 다음 주 실행 계획</label><div class="retro-text">' + (escHtml(r.plan) || '<span style="color:#475569">(비어있음)</span>') + '</div></div>';
+  }} else {{
+    content = '<p style="color:#64748b;text-align:center;padding:32px 12px;font-size:0.85rem;line-height:1.65">' +
+      '이 주의 <strong style="color:#cbd5e1">' + retroSelectedDoc + ' 원장</strong> 회고가 아직 없습니다.<br>' +
+      '<span style="font-size:0.74rem;color:#475569">아래 버튼에서 노션에 추가하면 다음 동기화 때 표시됩니다.</span></p>';
+  }}
+  document.getElementById('retroContent').innerHTML = content;
 }}
 
-function switchRetroDoc(weekLabel, doc) {{
-  retroDoc = doc;
-  renderRetroTabs(weekLabel);
-  renderRetroForm(weekLabel, doc);
-}}
-
-function renderRetroForm(weekLabel, doc) {{
-  var d = loadRetroData(weekLabel, doc);
-  document.getElementById('retroContent').innerHTML =
-    '<div class="retro-field">' +
-    '<label>✅ 잘한 점 — 반드시 1가지 이상 (행동 기준)</label>' +
-    '<textarea id="retro-good" class="retro-textarea" ' +
-    'placeholder="어떤 행동이었는지 구체적으로 작성...">' + escHtml(d.good) + '</textarea>' +
-    '<p class="retro-hint">잘한 점은 다음 주에도 반복해야 할 행동이다.</p></div>' +
-
-    '<div class="retro-field">' +
-    '<label>🔶 아쉬웠던 점 / 막혔던 지점</label>' +
-    '<textarea id="retro-bad" class="retro-textarea" ' +
-    'placeholder="변명 없이, 상황 설명 위주로...">' + escHtml(d.bad) + '</textarea>' +
-    '<p class="retro-hint">자책이 아니라 정확한 인식이 목적이다.</p></div>' +
-
-    '<div class="retro-field">' +
-    '<label>📌 다음 주를 위한 실행 계획 (최대 2개)</label>' +
-    '<textarea id="retro-plan" class="retro-textarea" ' +
-    'placeholder="반드시 구체적인 행동으로...">' + escHtml(d.plan) + '</textarea>' +
-    '<p class="retro-hint">목표는 완벽이 아니라 한 단계 개선이다.</p></div>' +
-
-    '<div class="retro-actions">' +
-    '<button class="retro-save-btn" ' +
-    'onclick="saveRetroData(allWeeks[currentIdx].label, retroDoc)">&#128190; 저장</button>' +
-    '<span id="retro-saved" class="retro-saved">&#10003; 저장됨</span>' +
-    '</div>';
-}}
-
-function escHtml(s) {{
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function selectRetroDoc(doc) {{
+  retroSelectedDoc = doc;
+  renderRetroBox(allWeeks[currentIdx].label);
 }}
 
 // ── 고정 차트들 ───────────────────────────────────────────
@@ -1255,6 +1237,16 @@ def main():
     npl, npc = calc_new_patients_monthly(df_customer)
     print(f"  총 {len(all_weeks)}주 데이터 계산 완료")
 
+    # 노션 회고 동기화 결과 로드 (없으면 빈 배열)
+    retro_path = LOCAL_DIR / "retro.json"
+    retros = []
+    if retro_path.exists():
+        try:
+            retros = json.loads(retro_path.read_text(encoding="utf-8"))
+            print(f"  회고 {len(retros)}건 로드")
+        except Exception as e:
+            print(f"  회고 로드 실패 (빈 배열로 진행): {e}")
+
     data = {
         "all_weeks":     all_weeks,
         "chuna_monthly": chuna_monthly,
@@ -1265,6 +1257,7 @@ def main():
         "monthly_nins":  mnins,
         "np_labels":     npl,
         "np_counts":     npc,
+        "retros":        retros,
     }
 
     print("HTML 생성 중...")
