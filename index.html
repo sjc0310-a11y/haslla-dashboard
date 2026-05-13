@@ -131,7 +131,7 @@
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 13일 21:41 기준</span><br>
+    <span class="updated">2026년 05월 13일 21:46 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -296,7 +296,7 @@
       <canvas id="kboFirstBar" height="200"></canvas>
     </div>
     <div class="chart-box">
-      <h3>월별 원장별 <span style="color:#cbd5e1">초진+재초진 합</span></h3>
+      <h3>월별 원장별 <span style="color:#cbd5e1">초진</span>(진한) + <span style="color:#94a3b8">재초진</span>(옅은)</h3>
       <canvas id="totalVisitBar" height="200"></canvas>
     </div>
   </div>
@@ -832,9 +832,25 @@ new Chart(document.getElementById('taFirstBar'), {
 new Chart(document.getElementById('kboFirstBar'), {
   type:'bar', data:{ labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "노왕식", "data": [39, 35, 17], "backgroundColor": "#3b82f6"}, {"label": "이문환", "data": [0, 3, 21], "backgroundColor": "#10b981"}, {"label": "방민준", "data": [0, 26, 19], "backgroundColor": "#f59e0b"}, {"label": "김한중", "data": [60, 60, 0], "backgroundColor": "#38bdf8"}] }, options:_fvOpts
 });
-// 원장별 (초진+재초진) 합 — 그 원장이 그 달 받은 신규/장기복귀 환자 총량
+// 원장별 초진(아래)+재초진(위) stacked, 원장끼리는 옆에 grouped
 new Chart(document.getElementById('totalVisitBar'), {
-  type:'bar', data:{ labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "노왕식", "data": [90, 101, 37], "backgroundColor": "#3b82f6"}, {"label": "이문환", "data": [0, 9, 44], "backgroundColor": "#10b981"}, {"label": "방민준", "data": [0, 43, 47], "backgroundColor": "#f59e0b"}, {"label": "김한중", "data": [118, 108, 0], "backgroundColor": "#38bdf8"}] }, options:_fvOpts
+  type:'bar',
+  data:{ labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "노왕식 초진", "data": [49, 52, 20], "backgroundColor": "#3b82f6", "stack": "노왕식"}, {"label": "노왕식 재초진", "data": [41, 49, 17], "backgroundColor": "#3b82f680", "stack": "노왕식"}, {"label": "이문환 초진", "data": [0, 5, 25], "backgroundColor": "#10b981", "stack": "이문환"}, {"label": "이문환 재초진", "data": [0, 4, 19], "backgroundColor": "#10b98180", "stack": "이문환"}, {"label": "방민준 초진", "data": [0, 32, 26], "backgroundColor": "#f59e0b", "stack": "방민준"}, {"label": "방민준 재초진", "data": [0, 11, 21], "backgroundColor": "#f59e0b80", "stack": "방민준"}, {"label": "김한중 초진", "data": [78, 70, 0], "backgroundColor": "#38bdf8", "stack": "김한중"}, {"label": "김한중 재초진", "data": [40, 38, 0], "backgroundColor": "#38bdf880", "stack": "김한중"}] },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{
+        labels:{
+          color:'#e2e8f0', font:{size:11, weight:'600'},
+          filter: function(item) { return item.text.indexOf('재초진') === -1; }
+        }
+      }
+    },
+    scales:{
+      x:{ stacked:true, ticks:{ color:'#94a3b8' }, grid:{ color:'#1e293b' } },
+      y:{ stacked:true, ticks:{ color:'#94a3b8' }, grid:{ color:'#334155' }, beginAtZero:true }
+    }
+  }
 });
 
 // 초기 렌더

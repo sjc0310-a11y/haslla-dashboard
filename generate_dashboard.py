@@ -431,16 +431,24 @@ def build_html(data):
         ], ensure_ascii=False)
     fv_ta_datasets  = _doc_datasets("ta")
     fv_kbo_datasets = _doc_datasets("kbo")
-    # 월별 원장별 (초진 + 재초진) 합계 — 그 원장이 그 달 받은 신규/장기복귀 환자 총량
+    # 월별 원장별 초진(아래) + 재초진(위) — 같은 stack 안에 누적해 한 막대 = 그 원장 그 달 총량
     n_months = len(dfm["labels"])
-    fv_total_datasets = json.dumps([
-        {
-            "label": doc,
-            "data": [dfm["ta"][doc][i] + dfm["kbo"][doc][i] + dfm["follow"][doc][i] for i in range(n_months)],
-            "backgroundColor": DOC_COLORS.get(doc, "#94a3b8"),
-        }
-        for doc in dfm["docs"]
-    ], ensure_ascii=False)
+    _total_ds = []
+    for doc in dfm["docs"]:
+        color = DOC_COLORS.get(doc, "#94a3b8")
+        _total_ds.append({
+            "label": f"{doc} 초진",
+            "data":  [dfm["ta"][doc][i] + dfm["kbo"][doc][i] for i in range(n_months)],
+            "backgroundColor": color,
+            "stack": doc,
+        })
+        _total_ds.append({
+            "label": f"{doc} 재초진",
+            "data":  dfm["follow"][doc],
+            "backgroundColor": color + "80",  # 50% 알파
+            "stack": doc,
+        })
+    fv_total_datasets = json.dumps(_total_ds, ensure_ascii=False)
 
     # ── 전체 주간 JSON ────────────────────────────────────
     all_weeks_json = json.dumps(all_weeks, ensure_ascii=False)
@@ -748,7 +756,7 @@ def build_html(data):
       <canvas id="kboFirstBar" height="200"></canvas>
     </div>
     <div class="chart-box">
-      <h3>월별 원장별 <span style="color:#cbd5e1">초진+재초진 합</span></h3>
+      <h3>월별 원장별 <span style="color:#cbd5e1">초진</span>(진한) + <span style="color:#94a3b8">재초진</span>(옅은)</h3>
       <canvas id="totalVisitBar" height="200"></canvas>
     </div>
   </div>
@@ -1284,9 +1292,25 @@ new Chart(document.getElementById('taFirstBar'), {{
 new Chart(document.getElementById('kboFirstBar'), {{
   type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_kbo_datasets} }}, options:_fvOpts
 }});
-// 원장별 (초진+재초진) 합 — 그 원장이 그 달 받은 신규/장기복귀 환자 총량
+// 원장별 초진(아래)+재초진(위) stacked, 원장끼리는 옆에 grouped
 new Chart(document.getElementById('totalVisitBar'), {{
-  type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_total_datasets} }}, options:_fvOpts
+  type:'bar',
+  data:{{ labels:{fv_labels}, datasets:{fv_total_datasets} }},
+  options:{{
+    responsive:true,
+    plugins:{{
+      legend:{{
+        labels:{{
+          color:'#e2e8f0', font:{{size:11, weight:'600'}},
+          filter: function(item) {{ return item.text.indexOf('재초진') === -1; }}
+        }}
+      }}
+    }},
+    scales:{{
+      x:{{ stacked:true, ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
+      y:{{ stacked:true, ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
+    }}
+  }}
 }});
 
 // 초기 렌더
