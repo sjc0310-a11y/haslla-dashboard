@@ -101,15 +101,17 @@ def load_chuna():
 def load_okchart_revenue():
     """원장별현황.csv (read_okchart.py 가 생성)"""
     path = LOCAL_DIR / "원장별현황.csv"
-    cols = ["날짜","원장명","건보매출","자보매출","비급여매출","린다이어트","초진","재초진","재진"]
+    cols = ["날짜","원장명","건보매출","자보매출","비급여매출","린다이어트","TA초진","건보초진","재초진","재진"]
     if not path.exists():
         return pd.DataFrame(columns=cols)
     df = pd.read_csv(path, encoding="utf-8-sig")
     df["날짜"] = pd.to_datetime(df["날짜"])
-    for col in ["건보매출","자보매출","비급여매출","린다이어트","초진","재초진","재진"]:
+    for col in ["건보매출","자보매출","비급여매출","린다이어트","TA초진","건보초진","재초진","재진"]:
         if col not in df.columns:
-            df[col] = 0  # 옛 CSV(재초진 컬럼 없음)에 대한 backward-compat
+            df[col] = 0  # 옛 CSV에 새 컬럼 없을 때 backward-compat
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+    # 옛 코드와 호환: '초진' 가상 컬럼 = TA초진 + 건보초진
+    df["초진"] = df["TA초진"] + df["건보초진"]
     return df
 
 
@@ -308,24 +310,26 @@ def calc_new_patients_monthly(df_cust):
 
 
 def calc_doc_first_visits_monthly(df_doc):
-    """최근 3개월 원장별 월별 초진·재초진 (df_doc의 '초진','재진' 컬럼)"""
+    """최근 3개월 원장별 월별 TA초진 / 건보초진 / 재초진"""
     if df_doc.empty:
-        return {"labels": [], "docs": [], "first": {}, "follow": {}}
+        return {"labels": [], "docs": [], "ta": {}, "kbo": {}, "follow": {}}
     df = df_doc.copy()
     df["month"] = df["날짜"].dt.to_period("M").apply(lambda p: p.start_time)
     months = sorted(df["month"].unique())[-3:]
     present = [d for d in df["원장명"].unique() if d not in EXCLUDE_FROM_STATS]
-    docs = [d for d in ACTIVE_DOCTORS if d in present]  # 진료 중 원장만, 순서 고정
+    docs = [d for d in ACTIVE_DOCTORS if d in present]
     result = {
         "labels": [m.strftime("%Y.%m") for m in months],
         "docs":   docs,
-        "first":  {},
+        "ta":     {},
+        "kbo":    {},
         "follow": {},
     }
     for doc in docs:
         ddf = df[df["원장명"] == doc]
-        result["first"][doc]  = [int(ddf[ddf["month"]==m]["초진"].sum()) for m in months]
-        result["follow"][doc] = [int(ddf[ddf["month"]==m]["재초진"].sum()) for m in months]
+        result["ta"][doc]     = [int(ddf[ddf["month"]==m]["TA초진"].sum())   for m in months]
+        result["kbo"][doc]    = [int(ddf[ddf["month"]==m]["건보초진"].sum()) for m in months]
+        result["follow"][doc] = [int(ddf[ddf["month"]==m]["재초진"].sum())   for m in months]
     return result
 
 
@@ -417,17 +421,17 @@ def build_html(data):
     # ── 6개월 트렌드 ──────────────────────────────────────
     np_labels      = json.dumps(d["np_labels"])
     np_counts      = json.dumps(d["np_counts"])
-    # 월별 원장별 초진/재초진 (3개월)
+    # 월별 원장별 TA초진/건보초진/재초진 (3개월)
     dfm = d["doc_first_monthly"]
     fv_labels = json.dumps(dfm["labels"])
-    fv_first_datasets = json.dumps([
-        {"label": doc, "data": dfm["first"][doc], "backgroundColor": DOC_COLORS.get(doc, "#94a3b8")}
-        for doc in dfm["docs"]
-    ], ensure_ascii=False)
-    fv_follow_datasets = json.dumps([
-        {"label": doc, "data": dfm["follow"][doc], "backgroundColor": DOC_COLORS.get(doc, "#94a3b8")}
-        for doc in dfm["docs"]
-    ], ensure_ascii=False)
+    def _doc_datasets(series_key):
+        return json.dumps([
+            {"label": doc, "data": dfm[series_key][doc], "backgroundColor": DOC_COLORS.get(doc, "#94a3b8")}
+            for doc in dfm["docs"]
+        ], ensure_ascii=False)
+    fv_ta_datasets     = _doc_datasets("ta")
+    fv_kbo_datasets    = _doc_datasets("kbo")
+    fv_follow_datasets = _doc_datasets("follow")
 
     # ── 전체 주간 JSON ────────────────────────────────────
     all_weeks_json = json.dumps(all_weeks, ensure_ascii=False)
@@ -725,14 +729,18 @@ def build_html(data):
 
   <!-- ═══ 원장별 초진·재초진 (고정) ═══════════════════════ -->
   <div class="section-title">원장별 초진·재초진 현황 (최근 3개월)<span class="fixed-badge">고정</span></div>
-  <div class="grid2">
+  <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
     <div class="chart-box">
-      <h3>월별 원장별 <span style="color:#a78bfa">초진</span></h3>
-      <canvas id="firstVisitBar" height="160"></canvas>
+      <h3>월별 원장별 <span style="color:#f59e0b">TA초진</span></h3>
+      <canvas id="taFirstBar" height="200"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>월별 원장별 <span style="color:#a78bfa">건보초진</span></h3>
+      <canvas id="kboFirstBar" height="200"></canvas>
     </div>
     <div class="chart-box">
       <h3>월별 원장별 <span style="color:#60a5fa">재초진</span></h3>
-      <canvas id="followVisitBar" height="160"></canvas>
+      <canvas id="followVisitBar" height="200"></canvas>
     </div>
   </div>
 
@@ -1252,32 +1260,23 @@ new Chart(document.getElementById('docMonthBar'), {{
   }}
 }});
 
-// 월별 원장별 초진 (grouped bar, 3개월)
-new Chart(document.getElementById('firstVisitBar'), {{
-  type:'bar',
-  data:{{ labels:{fv_labels}, datasets:{fv_first_datasets} }},
-  options:{{
-    responsive:true,
-    plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
-    scales:{{
-      x:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
-      y:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
-    }}
+// 월별 원장별 초진/재초진 차트 — 3개 (TA초진 / 건보초진 / 재초진)
+var _fvOpts = {{
+  responsive:true,
+  plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
+  scales:{{
+    x:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
+    y:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
   }}
+}};
+new Chart(document.getElementById('taFirstBar'), {{
+  type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_ta_datasets} }}, options:_fvOpts
 }});
-
-// 월별 원장별 재초진 (grouped bar, 3개월)
+new Chart(document.getElementById('kboFirstBar'), {{
+  type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_kbo_datasets} }}, options:_fvOpts
+}});
 new Chart(document.getElementById('followVisitBar'), {{
-  type:'bar',
-  data:{{ labels:{fv_labels}, datasets:{fv_follow_datasets} }},
-  options:{{
-    responsive:true,
-    plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
-    scales:{{
-      x:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
-      y:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
-    }}
-  }}
+  type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_follow_datasets} }}, options:_fvOpts
 }});
 
 // 초기 렌더

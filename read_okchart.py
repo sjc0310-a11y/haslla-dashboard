@@ -68,16 +68,19 @@ GROUP BY CONVERT(DATE, TxDate), TxDoctor
 ORDER BY 날짜, TxDoctor
 """
 
-# 원장별 일별 초진 / 재초진 / 재진 건수
-#   OK차트 PxName은 "진찰료(초진)" / "진찰료(재진)" 두 가지뿐이라 PxName만으론
-#   재초진을 가려낼 수 없다. 대신 환자(Customer_PK) 방문 이력에서 직접 계산.
-#     초진   = 그 환자의 진짜 첫 한의원 방문 (이전 방문 없음)
-#     재초진 = 직전 방문과 45일 이상 간격
-#     재진   = 직전 방문과 45일 미만 간격
+# 원장별 일별 TA초진 / 건보초진 / 재초진 / 재진 건수
+#   OK차트 PxName은 "진찰료(초진)" / "진찰료(재진)" 뿐이고 자보 환자는 진찰료
+#   row가 없다 (약침·물리치료 등 시술만 등록). 그래서 환자 방문 이력 +
+#   그 날 진료가 자보였는지(TxItem='자동차보험')로 직접 분류.
+#     TA초진   = 첫 방문 + 그 날 자보 진료 row 있음
+#     건보초진 = 첫 방문 + 그 날 자보 진료 없음 (=건보 환자)
+#     재초진   = 직전 방문 후 45일 이상 간격
+#     재진     = 직전 방문 후 45일 미만 간격
 SQL_VISIT = """
 WITH patient_visits AS (
     SELECT DISTINCT Customer_PK, CONVERT(DATE, TxDate) AS VisitDate
     FROM Detail
+    WHERE TxDoctor != N'선주천'
 ),
 visit_with_prev AS (
     SELECT
@@ -85,12 +88,23 @@ visit_with_prev AS (
         VisitDate,
         LAG(VisitDate) OVER (PARTITION BY Customer_PK ORDER BY VisitDate) AS PrevVisitDate
     FROM patient_visits
+),
+visit_type AS (
+    SELECT
+        Customer_PK,
+        CONVERT(DATE, TxDate) AS VisitDate,
+        MAX(CASE WHEN TxItem = N'자동차보험' THEN 1 ELSE 0 END) AS is_ta
+    FROM Detail
+    WHERE TxDoctor != N'선주천'
+    GROUP BY Customer_PK, CONVERT(DATE, TxDate)
 )
 SELECT
     CONVERT(DATE, d.TxDate)                                          AS 날짜,
     d.TxDoctor                                                       AS 원장명,
-    COUNT(DISTINCT CASE WHEN v.PrevVisitDate IS NULL
-                          THEN d.Customer_PK END)                    AS 초진,
+    COUNT(DISTINCT CASE WHEN v.PrevVisitDate IS NULL AND vt.is_ta = 1
+                          THEN d.Customer_PK END)                    AS TA초진,
+    COUNT(DISTINCT CASE WHEN v.PrevVisitDate IS NULL AND vt.is_ta = 0
+                          THEN d.Customer_PK END)                    AS 건보초진,
     COUNT(DISTINCT CASE WHEN v.PrevVisitDate IS NOT NULL
                           AND DATEDIFF(day, v.PrevVisitDate, v.VisitDate) >= 45
                           THEN d.Customer_PK END)                    AS 재초진,
@@ -101,9 +115,12 @@ FROM Detail d
 INNER JOIN visit_with_prev v
         ON v.Customer_PK = d.Customer_PK
        AND v.VisitDate    = CONVERT(DATE, d.TxDate)
+INNER JOIN visit_type vt
+        ON vt.Customer_PK = d.Customer_PK
+       AND vt.VisitDate   = CONVERT(DATE, d.TxDate)
 WHERE d.TxDate >= DATEADD(month, -6, GETDATE())
   AND d.TxDoctor != N'선주천'
-  AND d.PxName IN (N'진찰료(초진)', N'진찰료(재진)')
+  AND (d.PxName IN (N'진찰료(초진)', N'진찰료(재진)') OR d.TxItem = N'자동차보험')
 GROUP BY CONVERT(DATE, d.TxDate), d.TxDoctor
 ORDER BY 날짜, 원장명
 """
@@ -117,7 +134,7 @@ def main():
     # ── 매출 집계 ─────────────────────────────────────────
     print("  매출 쿼리 중...")
     cursor.execute(SQL_REVENUE)
-    data = defaultdict(lambda: {'건보매출':0,'자보매출':0,'비급여매출':0,'린다이어트':0,'초진':0,'재초진':0,'재진':0})
+    data = defaultdict(lambda: {'건보매출':0,'자보매출':0,'비급여매출':0,'린다이어트':0,'TA초진':0,'건보초진':0,'재초진':0,'재진':0})
 
     for 날짜, 원장명, 구분, 보험, 비급여 in cursor.fetchall():
         key = (str(날짜), 원장명)
@@ -135,19 +152,20 @@ def main():
     for 날짜, 원장명, 린다 in cursor.fetchall():
         data[(str(날짜), 원장명)]['린다이어트'] += int(린다 or 0)
 
-    # ── 초진/재초진/재진 집계 ────────────────────────────
-    print("  초진/재초진/재진 쿼리 중...")
+    # ── TA초진/건보초진/재초진/재진 집계 ─────────────────
+    print("  TA초진/건보초진/재초진/재진 쿼리 중...")
     cursor.execute(SQL_VISIT)
-    for 날짜, 원장명, 초진, 재초진, 재진 in cursor.fetchall():
+    for 날짜, 원장명, ta초진, 건보초진, 재초진, 재진 in cursor.fetchall():
         key = (str(날짜), 원장명)
-        data[key]['초진']   += int(초진   or 0)
-        data[key]['재초진'] += int(재초진 or 0)
-        data[key]['재진']   += int(재진   or 0)
+        data[key]['TA초진']  += int(ta초진  or 0)
+        data[key]['건보초진'] += int(건보초진 or 0)
+        data[key]['재초진']  += int(재초진  or 0)
+        data[key]['재진']    += int(재진    or 0)
 
     conn.close()
 
     # ── CSV 저장 ──────────────────────────────────────────
-    FIELDS = ['날짜','원장명','건보매출','자보매출','비급여매출','린다이어트','초진','재초진','재진']
+    FIELDS = ['날짜','원장명','건보매출','자보매출','비급여매출','린다이어트','TA초진','건보초진','재초진','재진']
     rows = []
     for (날짜, 원장명), v in sorted(data.items()):
         if v['건보매출'] == 0 and v['자보매출'] == 0 and v['비급여매출'] == 0:
@@ -155,7 +173,8 @@ def main():
         rows.append({'날짜':날짜, '원장명':원장명,
                      '건보매출':v['건보매출'], '자보매출':v['자보매출'],
                      '비급여매출':v['비급여매출'], '린다이어트':v['린다이어트'],
-                     '초진':v['초진'], '재초진':v['재초진'], '재진':v['재진']})
+                     'TA초진':v['TA초진'], '건보초진':v['건보초진'],
+                     '재초진':v['재초진'], '재진':v['재진']})
 
     with open(CSV_PATH, 'w', encoding='utf-8-sig', newline='') as f:
         w = csv.DictWriter(f, fieldnames=FIELDS, quoting=csv.QUOTE_ALL)
