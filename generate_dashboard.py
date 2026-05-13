@@ -666,6 +666,13 @@ def build_html(data):
     </div>
   </div>
 
+  <!-- ═══ 월별 원장별 매출 (고정) ════════════════════════ -->
+  <div class="section-title">월별 원장별 매출 추이 (최근 3개월)<span class="fixed-badge">고정</span></div>
+  <div class="chart-box">
+    <h3>원장별 총매출 (건보+자보+비급여)</h3>
+    <canvas id="docMonthBar" height="80"></canvas>
+  </div>
+
   <!-- ═══ 재진/삼진률 (동적) ════════════════════════════════ -->
   <div class="section-title" id="retSectionTitle">원장별 재진/삼진률</div>
   <div class="chart-box overflow-x">
@@ -735,13 +742,6 @@ def build_html(data):
       <h3>월별 건보추나 추이</h3>
       <canvas id="chunaMonthBar" height="220"></canvas>
     </div>
-  </div>
-
-  <!-- ═══ 월별 원장별 매출 (고정) ════════════════════════ -->
-  <div class="section-title">월별 원장별 매출 추이 (최근 3개월)<span class="fixed-badge">고정</span></div>
-  <div class="chart-box">
-    <h3>원장별 총매출 (건보+자보+비급여)</h3>
-    <canvas id="docMonthBar" height="80"></canvas>
   </div>
 
   <!-- ═══ 원장별 초진·재초진 (고정) ═══════════════════════ -->
