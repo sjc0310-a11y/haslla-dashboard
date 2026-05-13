@@ -69,8 +69,15 @@ def plain(prop: dict) -> str:
 
 def parse(page: dict) -> dict:
     p = page["properties"]
+    # 우선순위: '월요일' DATE → fallback to '주차' TITLE
+    week = ""
+    monday = (p.get("월요일", {}) or {}).get("date") or {}
+    if monday.get("start"):
+        week = monday["start"][:10]  # YYYY-MM-DD
+    if not week:
+        week = plain(p.get("주차"))
     return {
-        "week_label": plain(p.get("주차")),
+        "week_label": week,
         "doctor": (p.get("원장", {}).get("select") or {}).get("name", ""),
         "good": plain(p.get("잘한 점")),
         "bad": plain(p.get("아쉬웠던 점")),
