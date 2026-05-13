@@ -1079,12 +1079,18 @@ function renderWeek(idx) {{
   }});
   chunaPieChart.update();
 
-  // ── 추나 일별 상세 (건보추나만) ─────────────────────────
-  var dateMap = {{}};
-  for (var i=0; i<week.chuna_daily.length; i++) dateMap[week.chuna_daily[i]['날짜']] = true;
-  var dates = Object.keys(dateMap).sort();
+  // ── 추나 일별 상세 (월요일~일요일 7일 항상 표시, 휴진일도 포함) ──
+  var dates = [];
+  var _start = new Date(week.label + 'T00:00:00');
+  for (var _i=0; _i<7; _i++) {{
+    var _d = new Date(_start); _d.setDate(_d.getDate() + _i);
+    var _yy = _d.getFullYear();
+    var _mm = String(_d.getMonth()+1).padStart(2, '0');
+    var _dd = String(_d.getDate()).padStart(2, '0');
+    dates.push(_yy + '-' + _mm + '-' + _dd);
+  }}
   var dthtml = '';
-  if (dates.length === 0) {{
+  if (week.chuna_daily.length === 0) {{
     dthtml = '<p style="color:#475569;font-size:0.82rem;padding:12px">이 주에는 추나 데이터가 없습니다.</p>';
   }} else {{
     var dColW = Math.floor(90 / chunaDoctors.length);
