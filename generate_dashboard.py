@@ -1111,7 +1111,7 @@ function renderWeek(idx) {{
         }}
         dthtml += entry
           ? '<td class="num">'+entry['건보추나']+'</td>'
-          : '<td class="num">-</td>';
+          : '<td class="num" style="color:#475569">0</td>';
       }}
       dthtml += '</tr>';
     }}
