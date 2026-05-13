@@ -236,7 +236,7 @@ def calc_chuna_monthly_by_doc(df_chuna):
         return {"labels": []}
     df = df_chuna.copy()
     df["month"] = df["날짜"].dt.to_period("M").apply(lambda p: p.start_time)
-    months = sorted(df["month"].unique())[-6:]
+    months = sorted(df["month"].unique())[-3:]
     result = {"labels": [m.strftime("%Y.%m") for m in months]}
     for doc in DOCTORS:
         doc_df = df[df["원장명"] == doc]
@@ -245,12 +245,12 @@ def calc_chuna_monthly_by_doc(df_chuna):
 
 
 def calc_doc_monthly(df_doc):
-    """최근 6개월 원장별 매출 집계 (고정 차트용)"""
+    """최근 3개월 원장별 매출 집계 (고정 차트용)"""
     if df_doc.empty:
         return {"labels": [], "docs": [], "data": {}}
     df = df_doc.copy()
     df["month"] = df["날짜"].dt.to_period("M").apply(lambda p: p.start_time)
-    months = sorted(df["month"].unique())[-6:]
+    months = sorted(df["month"].unique())[-3:]
     all_docs = sorted(d for d in df["원장명"].unique() if d != "선주천")
     result = {
         "labels": [m.strftime("%Y.%m") for m in months],
@@ -624,6 +624,14 @@ def build_html(data):
           <tr><td colspan="2" style="color:#475569;text-align:center">로딩 중...</td></tr>
         </tbody>
       </table>
+      <div style="margin-top:12px;padding:10px 13px;background:#0f172a;border-radius:8px;border:1px solid #334155">
+        <div style="color:#cbd5e1;font-size:0.78rem;font-weight:600;margin-bottom:6px">📊 신호등 기준</div>
+        <div style="color:#e2e8f0;font-size:0.78rem;line-height:1.6">
+          <span style="color:#10b981;font-weight:700">●</span> ≥50건 &nbsp;·&nbsp;
+          <span style="color:#f59e0b;font-weight:700">●</span> 35~49건 &nbsp;·&nbsp;
+          <span style="color:#ef4444;font-weight:700">●</span> &lt;35건 &nbsp;<span style="color:#94a3b8">(목표 50건/주)</span>
+        </div>
+      </div>
     </div>
     <div class="chart-box">
       <h3>추나 비율</h3>
@@ -665,7 +673,7 @@ def build_html(data):
   </div>
 
   <!-- ═══ 월별 원장별 매출 (고정) ════════════════════════ -->
-  <div class="section-title">월별 원장별 매출 추이 (최근 6개월)<span class="fixed-badge">고정</span></div>
+  <div class="section-title">월별 원장별 매출 추이 (최근 3개월)<span class="fixed-badge">고정</span></div>
   <div class="chart-box">
     <h3>원장별 총매출 (건보+자보+비급여)</h3>
     <canvas id="docMonthBar" height="80"></canvas>
@@ -777,7 +785,7 @@ var docRevPieChart = new Chart(document.getElementById('docRevPie'), {{
     plugins: {{
       legend: {{
         labels: {{
-          color:'#94a3b8', font:{{size:11}},
+          color:'#e2e8f0', font:{{size:12, weight:'600'}},
           generateLabels: function(chart) {{
             var ds = chart.data.datasets[0];
             var total = (ds.data || []).reduce(function(a,b) {{ return a + (b||0); }}, 0);
@@ -788,6 +796,7 @@ var docRevPieChart = new Chart(document.getElementById('docRevPie'), {{
                 text: label + ' ' + pct + '%',
                 fillStyle: ds.backgroundColor[i],
                 strokeStyle: ds.backgroundColor[i],
+                fontColor: '#e2e8f0',
                 lineWidth: 0, hidden: false, index: i
               }};
             }});
@@ -832,6 +841,7 @@ var chunaPieChart = new Chart(document.getElementById('chunaPie'), {{
                 text: label + ' ' + pct + '%',
                 fillStyle: ds.backgroundColor[i],
                 strokeStyle: ds.backgroundColor[i],
+                fontColor: '#e2e8f0',
                 lineWidth: 0, hidden: false, index: i
               }};
             }});
@@ -977,8 +987,18 @@ function renderWeek(idx) {{
         '</tr>';
     }}
     rttbl += '</tbody></table>' +
-      '<p style="color:#475569;font-size:0.72rem;margin-top:8px;padding:0 4px">' +
-      '* 초진 담당 원장 기준 · 클리닉 전체 재방문 카운트 · 재진률 ≥70%🟢 ≥55%🟡 &lt;55%🔴 (목표80%) · 삼진률 ≥60%🟢 ≥45%🟡 &lt;45%🔴 (목표70%)</p>';
+      '<div style="margin-top:12px;padding:10px 13px;background:#0f172a;border-radius:8px;border:1px solid #334155">' +
+      '<div style="color:#cbd5e1;font-size:0.78rem;font-weight:600;margin-bottom:6px">📊 신호등 기준</div>' +
+      '<div style="color:#e2e8f0;font-size:0.78rem;line-height:1.7">' +
+      '<span style="color:#10b981;font-weight:700">●</span> <b>재진율</b> ≥70% &nbsp;·&nbsp; ' +
+      '<span style="color:#f59e0b;font-weight:700">●</span> 55~69% &nbsp;·&nbsp; ' +
+      '<span style="color:#ef4444;font-weight:700">●</span> &lt;55% &nbsp;<span style="color:#94a3b8">(목표 80%)</span><br>' +
+      '<span style="color:#10b981;font-weight:700">●</span> <b>삼진율</b> ≥60% &nbsp;·&nbsp; ' +
+      '<span style="color:#f59e0b;font-weight:700">●</span> 45~59% &nbsp;·&nbsp; ' +
+      '<span style="color:#ef4444;font-weight:700">●</span> &lt;45% &nbsp;<span style="color:#94a3b8">(목표 70%)</span>' +
+      '</div>' +
+      '<div style="color:#64748b;font-size:0.7rem;margin-top:6px">* 초진 담당 원장 기준 · 클리닉 전체 재방문 카운트</div>' +
+      '</div>';
     document.getElementById('retTableContainer').innerHTML = rttbl;
   }} else {{
     document.getElementById('retTableContainer').innerHTML =
@@ -1050,7 +1070,7 @@ function renderWeek(idx) {{
   document.getElementById('nextWeek').disabled = (idx===allWeeks.length-1);
 
   // ── 주간 회고 (노션 동기화 데이터 렌더링) ────
-  document.getElementById('retroSectionTitle').textContent = '📗 주간 회고 — ' + week.label_display;
+  document.getElementById('retroSectionTitle').textContent = '📗 주간 회고 — ' + koreanWeekRange(week.label);
   renderRetroBox(week.label);
 
   // ── 개인 KPI 배너 업데이트 ───────────────────────────────
@@ -1069,6 +1089,17 @@ function changeWeek(dir) {{
 // ── 주간 회고 함수 (노션 동기화 단방향 읽기) ──────────────
 function escHtml(s) {{
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}}
+
+function koreanWeekRange(label) {{
+  var parts = (label||'').split('-');
+  if (parts.length !== 3) return label;
+  var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  var end = new Date(y, m - 1, d);
+  end.setDate(end.getDate() + 6);
+  var em = end.getMonth() + 1, ed = end.getDate();
+  if (m === em) return m + '월 ' + d + '일 ~ ' + ed + '일';
+  return m + '월 ' + d + '일 ~ ' + em + '월 ' + ed + '일';
 }}
 
 function findRetro(weekLabel, doc) {{
