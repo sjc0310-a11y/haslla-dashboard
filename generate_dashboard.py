@@ -101,11 +101,14 @@ def load_chuna():
 def load_okchart_revenue():
     """원장별현황.csv (read_okchart.py 가 생성)"""
     path = LOCAL_DIR / "원장별현황.csv"
+    cols = ["날짜","원장명","건보매출","자보매출","비급여매출","린다이어트","초진","재초진","재진"]
     if not path.exists():
-        return pd.DataFrame(columns=["날짜","원장명","건보매출","자보매출","비급여매출","린다이어트","초진","재진"])
+        return pd.DataFrame(columns=cols)
     df = pd.read_csv(path, encoding="utf-8-sig")
     df["날짜"] = pd.to_datetime(df["날짜"])
-    for col in ["건보매출","자보매출","비급여매출","린다이어트","초진","재진"]:
+    for col in ["건보매출","자보매출","비급여매출","린다이어트","초진","재초진","재진"]:
+        if col not in df.columns:
+            df[col] = 0  # 옛 CSV(재초진 컬럼 없음)에 대한 backward-compat
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
     return df
 
@@ -319,7 +322,7 @@ def calc_doc_first_visits_monthly(df_doc):
     for doc in docs:
         ddf = df[df["원장명"] == doc]
         result["first"][doc]  = [int(ddf[ddf["month"]==m]["초진"].sum()) for m in months]
-        result["follow"][doc] = [int(ddf[ddf["month"]==m]["재진"].sum()) for m in months]
+        result["follow"][doc] = [int(ddf[ddf["month"]==m]["재초진"].sum()) for m in months]
     return result
 
 
