@@ -198,8 +198,9 @@ def calc_all_weeks_data(df_receipt, df_detail, df_customer, df_chuna, df_doc, df
                 "TA추나":   int(row["TA추나"]),
             })
 
-        # 원장별 매출
+        # 원장별 매출 + 그 주의 원장별 진료(출근) 날짜 (OK차트 기록 기준)
         doc_revenue = {}
+        doc_work_dates = {}  # {원장명: ["2026-05-04", ...]} — 일별 상세에서 출근 여부 판단용
         if not df_dv.empty:
             dv_w = df_dv[df_dv["ws"] == ws]
             for doc in dv_w["원장명"].unique():
@@ -211,6 +212,7 @@ def calc_all_weeks_data(df_receipt, df_detail, df_customer, df_chuna, df_doc, df
                     "린다이어트": int(ddv["린다이어트"].sum()),
                     "초진":    int(ddv["초진"].sum()),
                 }
+                doc_work_dates[doc] = sorted(set(ddv["날짜"].dt.strftime("%Y-%m-%d").tolist()))
 
         # 원장별 재진/삼진률 (이 주의 월요일 = 기준일)
         retention = {}
@@ -237,6 +239,7 @@ def calc_all_weeks_data(df_receipt, df_detail, df_customer, df_chuna, df_doc, df
             "chuna":         chuna_stats,
             "chuna_daily":   chuna_daily,
             "doc_revenue":   doc_revenue,
+            "doc_work_dates": doc_work_dates,
             "retention":     retention,
         })
 
@@ -1100,18 +1103,26 @@ function renderWeek(idx) {{
     dthtml += '</colgroup><thead><tr><th>날짜</th>';
     for (var i=0; i<chunaDoctors.length; i++) dthtml += '<th class="num">' + chunaDoctors[i] + '</th>';
     dthtml += '</tr></thead><tbody>';
+    var workDates = week.doc_work_dates || {{}};
     for (var di=0; di<dates.length; di++) {{
       dthtml += '<tr><td>' + dates[di].slice(5) + '</td>';
       for (var dj=0; dj<chunaDoctors.length; dj++) {{
+        var doc = chunaDoctors[dj];
         var entry=null;
         for (var k=0; k<week.chuna_daily.length; k++) {{
-          if (week.chuna_daily[k]['날짜']===dates[di] && week.chuna_daily[k]['원장명']===chunaDoctors[dj]) {{
+          if (week.chuna_daily[k]['날짜']===dates[di] && week.chuna_daily[k]['원장명']===doc) {{
             entry=week.chuna_daily[k]; break;
           }}
         }}
-        dthtml += entry
-          ? '<td class="num">'+entry['건보추나']+'</td>'
-          : '<td class="num" style="color:#475569">0</td>';
+        if (entry) {{
+          dthtml += '<td class="num">'+entry['건보추나']+'</td>';
+        }} else if (workDates[doc] && workDates[doc].indexOf(dates[di]) >= 0) {{
+          // 그 원장이 그 날 진료(OK차트 기록)는 있었지만 추나 0건
+          dthtml += '<td class="num" style="color:#475569">0</td>';
+        }} else {{
+          // 출근 안 한 날 (개인 비번)
+          dthtml += '<td class="num" style="color:#334155">-</td>';
+        }}
       }}
       dthtml += '</tr>';
     }}
