@@ -653,7 +653,7 @@ def build_html(data):
   </div>
 
   <!-- ═══ 월별 건보추나 인센티브 (고정) ══════════════════ -->
-  <div class="section-title">월별 건보추나 현황 (인센티브 기준)<span class="fixed-badge">고정</span></div>
+  <div class="section-title">월별 건보추나 현황<span class="fixed-badge">고정</span></div>
   <div class="grid3">
     <div class="chart-box overflow-x">
       <h3>원장별 월별 건보추나</h3>
