@@ -561,6 +561,10 @@ def build_html(data):
              border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;
              white-space:nowrap;transition:all 0.15s}}
   .home-btn:hover{{background:#2563eb}}
+  .update-btn{{background:#10b981;border:none;color:#fff;padding:7px 14px;
+               border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;
+               white-space:nowrap;transition:all 0.15s;text-decoration:none;display:inline-block}}
+  .update-btn:hover{{background:#059669}}
   @media(max-width:900px){{
     .header{{grid-template-columns:1fr;gap:8px}}
     .header .updated{{text-align:left}}
@@ -581,8 +585,9 @@ def build_html(data):
 </div>
 
 <div class="header">
-  <div style="display:flex;align-items:center;gap:10px">
+  <div style="display:flex;align-items:center;gap:8px">
     <button class="home-btn" onclick="goHome()" title="홈으로">🏠 홈</button>
+    <a class="update-btn" href="haslla:update" onclick="onUpdateClick(event)" title="한의원 PC에서 update_dashboard.bat 실행 (haslla:// 프로토콜 등록 필요)">🔄 지금 업데이트</a>
     <h1>🏥 하슬라한의원 경영 대시보드</h1>
   </div>
   <div class="week-nav">
@@ -832,6 +837,20 @@ function goHome() {{
   var wts = document.getElementById('weekTotalSection');
   if (wts) wts.style.display = '';
   window.scrollTo({{top:0, behavior:'instant'}});
+}}
+
+function onUpdateClick(e) {{
+  // 한 번 확인하고 한의원 PC에서 update_dashboard.bat을 실행.
+  // haslla:// 프로토콜이 등록된 PC에서만 작동. 다른 PC에서는 안내만.
+  if (!confirm('한의원 PC에서 데이터 갱신을 시작합니다. (약 1~2분 소요)\\n\\n실행 후 1~2분 뒤 페이지를 새로고침하면 최신 데이터로 보입니다.\\n\\n계속하시겠습니까?')) {{
+    e.preventDefault();
+    return false;
+  }}
+  // 잠시 후 사용자에게 새로고침 안내 토스트
+  setTimeout(function() {{
+    alert('업데이트 시작됐습니다.\\n1~2분 뒤 페이지를 새로고침(F5)하면 최신 데이터가 보입니다.');
+  }}, 400);
+  return true;
 }}
 
 function updateMyKpi(idx) {{
