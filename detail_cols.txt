@@ -1,0 +1,84 @@
+Detail_PK
+Customer_PK
+SN
+TxDate
+TxTime
+TxItem
+DxName
+PxCode
+PxName
+TxCount
+InsuYes
+InsuDone
+TxDoctor
+InsuCode
+IsDrug
+TxMoney
+YUHYO
+DAYTU
+tmpRR
+ChupSu
+PakSu
+Weight
+ETCNote
+EatDirection
+PrintNote1
+PrintNote2
+ChimETCTag
+BoninPercent
+IsYakChim
+WriteTime
+etcinsumark
+과세여부
+OKOCS_PK
+추나여부상태
+사고번호
+공제제외여부
+첩약시범여부상태
+자보첩약등록상태
+
+InsuCode 분포:
+  '40701': 2722건
+  '40091': 2707건
+  '40307': 2255건
+  'P0001002': 2179건
+  '10200': 2081건
+  '40012': 1885건
+  '40313': 1810건
+  '40070': 1407건
+  '40060': 1288건
+  '40011': 830건
+  '40710': 484건
+  '40721': 458건
+  '10200010': 335건
+  '40312': 323건
+  '10100': 251건
+  '10200030': 203건
+  '10200050': 166건
+  '40321': 135건
+  '40400': 64건
+  '10100010': 51건
+  '10100050': 50건
+  '10100030': 38건
+  '40012004': 32건
+  '40080': 11건
+  '40050': 9건
+  '10200610': 6건
+  '30160': 6건
+  'B694205040-240601': 6건
+  '40700': 4건
+  'B694204410-240601': 3건
+  '10200600': 2건
+  'B661304830-240601': 2건
+  '30150': 2건
+  '30070': 2건
+  'B694204070-240601': 1건
+  '10200630': 1건
+  '30050': 1건
+  '10200620': 1건
+  '10100610': 1건
+  '40702': 1건
+
+
+Receipt 컬럼:
+Receipt_PK, Customer_PK, Customer_name, TxDate, Bonin_Money, CheongGu_Money, General_Money, Calcu_NotAdd, Calcu_Add, Calcu_Type, HandWrite, sn, SUMMARYTREAT, Misugum, CreditCard, SendDrug, MisuMoney, Handicap_Money, v_Bonin, v_CheongGu, v_Handicap, v_NotAdd, v_Add, v_CalcuType, i_Bonin, i_CheongGu, i_Handicap, i_NotAdd, i_Add, i_CalcuType, VERSION, M3_PK, excludemark, mark촉탁의, mark자보2차, mark의뢰협진시범, 추나본인부담율, 추나진료비, 추나자격구분, 첩약시범구분, 첩약시범진료비, 첩약시범본인부담, 선별급여진료비, 선별급여본인부담, 방문진료시범진료비, 방문진료시범본인부담, 방문진료시범CalcuType, 투비콘_알림톡전송여부, WriteTime
