@@ -415,10 +415,6 @@ def build_html(data):
     doc_colors_json = json.dumps(DOC_COLORS, ensure_ascii=False)
 
     # ── 6개월 트렌드 ──────────────────────────────────────
-    monthly_labels = json.dumps(d["monthly_labels"])
-    monthly_kbo    = json.dumps(d["monthly_kbo"])
-    monthly_jbo    = json.dumps(d["monthly_jbo"])
-    monthly_nins   = json.dumps(d["monthly_nins"])
     np_labels      = json.dumps(d["np_labels"])
     np_counts      = json.dumps(d["np_counts"])
     # 월별 원장별 초진/재초진 (3개월)
@@ -725,13 +721,6 @@ def build_html(data):
   <div class="chart-box">
     <h3>원장별 총매출 (건보+자보+비급여)</h3>
     <canvas id="docMonthBar" height="80"></canvas>
-  </div>
-
-  <!-- ═══ 전체 매출 트렌드 (고정) ════════════════════════ -->
-  <div class="section-title">전체 매출 트렌드 (최근 6개월)<span class="fixed-badge">고정</span></div>
-  <div class="chart-box">
-    <h3>월별 건보 / 자보 / 비급여 매출</h3>
-    <canvas id="revBar" height="80"></canvas>
   </div>
 
   <!-- ═══ 원장별 초진·재초진 (고정) ═══════════════════════ -->
@@ -1263,28 +1252,6 @@ new Chart(document.getElementById('docMonthBar'), {{
   }}
 }});
 
-// 전체 매출 바차트
-new Chart(document.getElementById('revBar'), {{
-  type: 'bar',
-  data: {{
-    labels:{monthly_labels},
-    datasets:[
-      {{ label:'건보매출', data:{monthly_kbo},  backgroundColor:'#3b82f680', borderColor:'#3b82f6', borderWidth:1 }},
-      {{ label:'자보매출', data:{monthly_jbo},  backgroundColor:'#10b98180', borderColor:'#10b981', borderWidth:1 }},
-      {{ label:'비급여',   data:{monthly_nins}, backgroundColor:'#f59e0b80', borderColor:'#f59e0b', borderWidth:1 }}
-    ]
-  }},
-  options:{{
-    responsive:true,
-    plugins:{{ legend:{{ labels:{{ color:'#94a3b8' }} }} }},
-    scales:{{
-      x:{{ ticks:{{ color:'#64748b' }}, grid:{{ color:'#1e293b' }} }},
-      y:{{ ticks:{{ color:'#64748b', callback:function(v){{ return (v/10000).toFixed(0)+'만'; }} }},
-           grid:{{ color:'#334155' }}, beginAtZero:true }}
-    }}
-  }}
-}});
-
 // 월별 원장별 초진 (grouped bar, 3개월)
 new Chart(document.getElementById('firstVisitBar'), {{
   type:'bar',
@@ -1355,7 +1322,6 @@ def main():
     all_weeks     = calc_all_weeks_data(df_receipt, df_detail, df_customer, df_chuna, df_doc, df_ret)
     chuna_monthly = calc_chuna_monthly_by_doc(df_chuna)
     doc_monthly   = calc_doc_monthly(df_doc)
-    ml, mkbo, mjbo, mnins = calc_monthly_revenue(df_receipt)
     npl, npc = calc_new_patients_monthly(df_customer)
     doc_first_monthly = calc_doc_first_visits_monthly(df_doc)
     print(f"  총 {len(all_weeks)}주 데이터 계산 완료")
@@ -1374,10 +1340,6 @@ def main():
         "all_weeks":     all_weeks,
         "chuna_monthly": chuna_monthly,
         "doc_monthly":   doc_monthly,
-        "monthly_labels": ml,
-        "monthly_kbo":   mkbo,
-        "monthly_jbo":   mjbo,
-        "monthly_nins":  mnins,
         "np_labels":     npl,
         "np_counts":     npc,
         "doc_first_monthly": doc_first_monthly,

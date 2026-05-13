@@ -131,7 +131,7 @@
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 13일 14:16 기준</span><br>
+    <span class="updated">2026년 05월 13일 14:30 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -282,13 +282,6 @@
   <div class="chart-box">
     <h3>원장별 총매출 (건보+자보+비급여)</h3>
     <canvas id="docMonthBar" height="80"></canvas>
-  </div>
-
-  <!-- ═══ 전체 매출 트렌드 (고정) ════════════════════════ -->
-  <div class="section-title">전체 매출 트렌드 (최근 6개월)<span class="fixed-badge">고정</span></div>
-  <div class="chart-box">
-    <h3>월별 건보 / 자보 / 비급여 매출</h3>
-    <canvas id="revBar" height="80"></canvas>
   </div>
 
   <!-- ═══ 원장별 초진·재초진 (고정) ═══════════════════════ -->
@@ -810,28 +803,6 @@ new Chart(document.getElementById('docMonthBar'), {
   type: 'bar',
   data: { labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "김한중", "data": [50747030, 38253300, 0], "backgroundColor": "#38bdf880", "borderColor": "#38bdf8", "borderWidth": 1}, {"label": "노왕식", "data": [46509680, 52402770, 21966310], "backgroundColor": "#3b82f680", "borderColor": "#3b82f6", "borderWidth": 1}, {"label": "방민준", "data": [0, 9847140, 20426480], "backgroundColor": "#f59e0b80", "borderColor": "#f59e0b", "borderWidth": 1}, {"label": "이문환", "data": [0, 1372270, 16670840], "backgroundColor": "#10b98180", "borderColor": "#10b981", "borderWidth": 1}] },
   options: {
-    responsive:true,
-    plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
-    scales:{
-      x:{ ticks:{ color:'#64748b' }, grid:{ color:'#1e293b' } },
-      y:{ ticks:{ color:'#64748b', callback:function(v){ return (v/10000).toFixed(0)+'만'; } },
-           grid:{ color:'#334155' }, beginAtZero:true }
-    }
-  }
-});
-
-// 전체 매출 바차트
-new Chart(document.getElementById('revBar'), {
-  type: 'bar',
-  data: {
-    labels:["2025.12", "2026.01", "2026.02", "2026.03", "2026.04", "2026.05"],
-    datasets:[
-      { label:'건보매출', data:[95382920, 99636950, 85233450, 98560210, 94717100, 30241440],  backgroundColor:'#3b82f680', borderColor:'#3b82f6', borderWidth:1 },
-      { label:'자보매출', data:[41477730, 43308290, 27335830, 51051990, 47014070, 14717160],  backgroundColor:'#10b98180', borderColor:'#10b981', borderWidth:1 },
-      { label:'비급여',   data:[65509300, 68799600, 50960900, 69358700, 65068680, 22023700], backgroundColor:'#f59e0b80', borderColor:'#f59e0b', borderWidth:1 }
-    ]
-  },
-  options:{
     responsive:true,
     plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
     scales:{
