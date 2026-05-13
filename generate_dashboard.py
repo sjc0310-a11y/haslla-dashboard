@@ -701,6 +701,15 @@ def build_html(data):
 <script>
 var allWeeks   = {all_weeks_json};
 var currentIdx = allWeeks.length > 0 ? allWeeks.length - 1 : 0;
+
+// URL hash로 주차 지정 가능 (#week=YYYY-MM-DD) — 노션 회고에서 그 주 대시보드로 점프
+(function() {{
+  var m = window.location.hash.match(/week=(\d{{4}}-\d{{2}}-\d{{2}})/);
+  if (!m) return;
+  for (var i=0; i<allWeeks.length; i++) {{
+    if (allWeeks[i].label === m[1]) {{ currentIdx = i; break; }}
+  }}
+}})();
 var chunaDoctors  = {json.dumps(DOCTORS, ensure_ascii=False)};
 var docColorMap   = {doc_colors_json};
 var myDoc      = localStorage.getItem('haslla_myDoc') || null;
@@ -1051,6 +1060,9 @@ function renderWeek(idx) {{
 function changeWeek(dir) {{
   currentIdx = Math.max(0, Math.min(allWeeks.length-1, currentIdx+dir));
   renderWeek(currentIdx);
+  if (allWeeks[currentIdx]) {{
+    history.replaceState(null, '', '#week=' + allWeeks[currentIdx].label);
+  }}
   window.scrollTo({{top:0, behavior:'smooth'}});
 }}
 
