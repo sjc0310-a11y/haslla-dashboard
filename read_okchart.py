@@ -69,25 +69,43 @@ ORDER BY 날짜, TxDoctor
 """
 
 # 원장별 일별 초진 / 재초진 / 재진 건수
-#   초진   = 한의원 첫 방문 (PxName "초진료" 등, "재초"는 제외)
-#   재초진 = 한의원 방문 경력 있으나 45일 이상 간격 후 재방문 (PxName "재초진료" 등)
-#   재진   = 일반 재진료 (PxName "재진" 포함, "초진"/"재초" 제외)
+#   OK차트 PxName은 "진찰료(초진)" / "진찰료(재진)" 두 가지뿐이라 PxName만으론
+#   재초진을 가려낼 수 없다. 대신 환자(Customer_PK) 방문 이력에서 직접 계산.
+#     초진   = 그 환자의 진짜 첫 한의원 방문 (이전 방문 없음)
+#     재초진 = 직전 방문과 45일 이상 간격
+#     재진   = 직전 방문과 45일 미만 간격
 SQL_VISIT = """
+WITH patient_visits AS (
+    SELECT DISTINCT Customer_PK, CONVERT(DATE, TxDate) AS VisitDate
+    FROM Detail
+),
+visit_with_prev AS (
+    SELECT
+        Customer_PK,
+        VisitDate,
+        LAG(VisitDate) OVER (PARTITION BY Customer_PK ORDER BY VisitDate) AS PrevVisitDate
+    FROM patient_visits
+)
 SELECT
-    CONVERT(DATE, TxDate)                                            AS 날짜,
-    TxDoctor                                                         AS 원장명,
-    COUNT(DISTINCT CASE WHEN PxName LIKE N'%초진%'
-                         AND PxName NOT LIKE N'%재초%' THEN SN END)  AS 초진,
-    COUNT(DISTINCT CASE WHEN PxName LIKE N'%재초%' THEN SN END)      AS 재초진,
-    COUNT(DISTINCT CASE WHEN PxName LIKE N'%재진%'
-                         AND PxName NOT LIKE N'%초진%'
-                         AND PxName NOT LIKE N'%재초%' THEN SN END)  AS 재진
-FROM Detail
-WHERE TxDate >= DATEADD(month, -6, GETDATE())
-  AND TxDoctor != N'선주천'
-  AND (PxName LIKE N'%초진%' OR PxName LIKE N'%재진%')
-GROUP BY CONVERT(DATE, TxDate), TxDoctor
-ORDER BY 날짜, TxDoctor
+    CONVERT(DATE, d.TxDate)                                          AS 날짜,
+    d.TxDoctor                                                       AS 원장명,
+    COUNT(DISTINCT CASE WHEN v.PrevVisitDate IS NULL
+                          THEN d.Customer_PK END)                    AS 초진,
+    COUNT(DISTINCT CASE WHEN v.PrevVisitDate IS NOT NULL
+                          AND DATEDIFF(day, v.PrevVisitDate, v.VisitDate) >= 45
+                          THEN d.Customer_PK END)                    AS 재초진,
+    COUNT(DISTINCT CASE WHEN v.PrevVisitDate IS NOT NULL
+                          AND DATEDIFF(day, v.PrevVisitDate, v.VisitDate) < 45
+                          THEN d.Customer_PK END)                    AS 재진
+FROM Detail d
+INNER JOIN visit_with_prev v
+        ON v.Customer_PK = d.Customer_PK
+       AND v.VisitDate    = CONVERT(DATE, d.TxDate)
+WHERE d.TxDate >= DATEADD(month, -6, GETDATE())
+  AND d.TxDoctor != N'선주천'
+  AND d.PxName IN (N'진찰료(초진)', N'진찰료(재진)')
+GROUP BY CONVERT(DATE, d.TxDate), d.TxDoctor
+ORDER BY 날짜, 원장명
 """
 
 
