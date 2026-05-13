@@ -431,13 +431,15 @@ def build_html(data):
         ], ensure_ascii=False)
     fv_ta_datasets  = _doc_datasets("ta")
     fv_kbo_datasets = _doc_datasets("kbo")
-    # 월별 한의원 전체 합계 (모든 원장 합산)
+    # 월별 원장별 (초진 + 재초진) 합계 — 그 원장이 그 달 받은 신규/장기복귀 환자 총량
     n_months = len(dfm["labels"])
-    total_first  = [sum(dfm["ta"][doc][i] + dfm["kbo"][doc][i] for doc in dfm["docs"]) for i in range(n_months)]
-    total_follow = [sum(dfm["follow"][doc][i]                   for doc in dfm["docs"]) for i in range(n_months)]
     fv_total_datasets = json.dumps([
-        {"label": "초진 (TA+건보)", "data": total_first,  "backgroundColor": "#a78bfa"},
-        {"label": "재초진",         "data": total_follow, "backgroundColor": "#60a5fa"},
+        {
+            "label": doc,
+            "data": [dfm["ta"][doc][i] + dfm["kbo"][doc][i] + dfm["follow"][doc][i] for i in range(n_months)],
+            "backgroundColor": DOC_COLORS.get(doc, "#94a3b8"),
+        }
+        for doc in dfm["docs"]
     ], ensure_ascii=False)
 
     # ── 전체 주간 JSON ────────────────────────────────────
@@ -746,7 +748,7 @@ def build_html(data):
       <canvas id="kboFirstBar" height="200"></canvas>
     </div>
     <div class="chart-box">
-      <h3>월별 <span style="color:#a78bfa">초진</span> + <span style="color:#60a5fa">재초진</span> 종합</h3>
+      <h3>월별 원장별 <span style="color:#cbd5e1">초진+재초진 합</span></h3>
       <canvas id="totalVisitBar" height="200"></canvas>
     </div>
   </div>
@@ -1282,17 +1284,9 @@ new Chart(document.getElementById('taFirstBar'), {{
 new Chart(document.getElementById('kboFirstBar'), {{
   type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_kbo_datasets} }}, options:_fvOpts
 }});
-// 종합 (stacked: 초진 아래, 재초진 위)
+// 원장별 (초진+재초진) 합 — 그 원장이 그 달 받은 신규/장기복귀 환자 총량
 new Chart(document.getElementById('totalVisitBar'), {{
-  type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_total_datasets} }},
-  options:{{
-    responsive:true,
-    plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
-    scales:{{
-      x:{{ stacked:true, ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
-      y:{{ stacked:true, ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
-    }}
-  }}
+  type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_total_datasets} }}, options:_fvOpts
 }});
 
 // 초기 렌더

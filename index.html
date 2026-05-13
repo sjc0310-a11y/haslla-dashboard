@@ -131,7 +131,7 @@
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 13일 21:28 기준</span><br>
+    <span class="updated">2026년 05월 13일 21:41 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -296,7 +296,7 @@
       <canvas id="kboFirstBar" height="200"></canvas>
     </div>
     <div class="chart-box">
-      <h3>월별 <span style="color:#a78bfa">초진</span> + <span style="color:#60a5fa">재초진</span> 종합</h3>
+      <h3>월별 원장별 <span style="color:#cbd5e1">초진+재초진 합</span></h3>
       <canvas id="totalVisitBar" height="200"></canvas>
     </div>
   </div>
@@ -832,17 +832,9 @@ new Chart(document.getElementById('taFirstBar'), {
 new Chart(document.getElementById('kboFirstBar'), {
   type:'bar', data:{ labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "노왕식", "data": [39, 35, 17], "backgroundColor": "#3b82f6"}, {"label": "이문환", "data": [0, 3, 21], "backgroundColor": "#10b981"}, {"label": "방민준", "data": [0, 26, 19], "backgroundColor": "#f59e0b"}, {"label": "김한중", "data": [60, 60, 0], "backgroundColor": "#38bdf8"}] }, options:_fvOpts
 });
-// 종합 (stacked: 초진 아래, 재초진 위)
+// 원장별 (초진+재초진) 합 — 그 원장이 그 달 받은 신규/장기복귀 환자 총량
 new Chart(document.getElementById('totalVisitBar'), {
-  type:'bar', data:{ labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "초진 (TA+건보)", "data": [127, 159, 71], "backgroundColor": "#a78bfa"}, {"label": "재초진", "data": [81, 102, 57], "backgroundColor": "#60a5fa"}] },
-  options:{
-    responsive:true,
-    plugins:{ legend:{ labels:{ color:'#e2e8f0', font:{size:11, weight:'600'} } } },
-    scales:{
-      x:{ stacked:true, ticks:{ color:'#94a3b8' }, grid:{ color:'#1e293b' } },
-      y:{ stacked:true, ticks:{ color:'#94a3b8' }, grid:{ color:'#334155' }, beginAtZero:true }
-    }
-  }
+  type:'bar', data:{ labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "노왕식", "data": [90, 101, 37], "backgroundColor": "#3b82f6"}, {"label": "이문환", "data": [0, 9, 44], "backgroundColor": "#10b981"}, {"label": "방민준", "data": [0, 43, 47], "backgroundColor": "#f59e0b"}, {"label": "김한중", "data": [118, 108, 0], "backgroundColor": "#38bdf8"}] }, options:_fvOpts
 });
 
 // 초기 렌더
