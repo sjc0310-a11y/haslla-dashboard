@@ -301,6 +301,28 @@ def calc_new_patients_monthly(df_cust):
     return labels, counts
 
 
+def calc_doc_first_visits_monthly(df_doc):
+    """최근 3개월 원장별 월별 초진·재초진 (df_doc의 '초진','재진' 컬럼)"""
+    if df_doc.empty:
+        return {"labels": [], "docs": [], "first": {}, "follow": {}}
+    df = df_doc.copy()
+    df["month"] = df["날짜"].dt.to_period("M").apply(lambda p: p.start_time)
+    months = sorted(df["month"].unique())[-3:]
+    present = [d for d in df["원장명"].unique() if d not in EXCLUDE_FROM_STATS]
+    docs = [d for d in ACTIVE_DOCTORS if d in present]  # 진료 중 원장만, 순서 고정
+    result = {
+        "labels": [m.strftime("%Y.%m") for m in months],
+        "docs":   docs,
+        "first":  {},
+        "follow": {},
+    }
+    for doc in docs:
+        ddf = df[df["원장명"] == doc]
+        result["first"][doc]  = [int(ddf[ddf["month"]==m]["초진"].sum()) for m in months]
+        result["follow"][doc] = [int(ddf[ddf["month"]==m]["재진"].sum()) for m in months]
+    return result
+
+
 # ─── HTML 생성 ────────────────────────────────────────────
 def fmt(n):
     return f"{n//10000:,}만원"
@@ -393,6 +415,17 @@ def build_html(data):
     monthly_nins   = json.dumps(d["monthly_nins"])
     np_labels      = json.dumps(d["np_labels"])
     np_counts      = json.dumps(d["np_counts"])
+    # 월별 원장별 초진/재초진 (3개월)
+    dfm = d["doc_first_monthly"]
+    fv_labels = json.dumps(dfm["labels"])
+    fv_first_datasets = json.dumps([
+        {"label": doc, "data": dfm["first"][doc], "backgroundColor": DOC_COLORS.get(doc, "#94a3b8")}
+        for doc in dfm["docs"]
+    ], ensure_ascii=False)
+    fv_follow_datasets = json.dumps([
+        {"label": doc, "data": dfm["follow"][doc], "backgroundColor": DOC_COLORS.get(doc, "#94a3b8")}
+        for doc in dfm["docs"]
+    ], ensure_ascii=False)
 
     # ── 전체 주간 JSON ────────────────────────────────────
     all_weeks_json = json.dumps(all_weeks, ensure_ascii=False)
@@ -695,11 +728,17 @@ def build_html(data):
     <canvas id="revBar" height="80"></canvas>
   </div>
 
-  <!-- ═══ 신환 현황 (고정) ════════════════════════════════ -->
-  <div class="section-title">신환 현황 (최근 6개월)<span class="fixed-badge">고정</span></div>
-  <div class="chart-box">
-    <h3>월별 신환 수</h3>
-    <canvas id="newPat" height="80"></canvas>
+  <!-- ═══ 원장별 초진·재초진 (고정) ═══════════════════════ -->
+  <div class="section-title">원장별 초진·재초진 현황 (최근 3개월)<span class="fixed-badge">고정</span></div>
+  <div class="grid2">
+    <div class="chart-box">
+      <h3>월별 원장별 <span style="color:#a78bfa">초진</span></h3>
+      <canvas id="firstVisitBar" height="160"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>월별 원장별 <span style="color:#60a5fa">재초진</span></h3>
+      <canvas id="followVisitBar" height="160"></canvas>
+    </div>
   </div>
 
   <!-- ═══ 주간 회고 (노션 DB → 매일 자동 동기화) ══════════ -->
@@ -1226,20 +1265,30 @@ new Chart(document.getElementById('revBar'), {{
   }}
 }});
 
-// 신환 바차트
-new Chart(document.getElementById('newPat'), {{
+// 월별 원장별 초진 (grouped bar, 3개월)
+new Chart(document.getElementById('firstVisitBar'), {{
   type:'bar',
-  data:{{
-    labels:{np_labels},
-    datasets:[{{ label:'신환 수', data:{np_counts},
-                 backgroundColor:'#a78bfa80', borderColor:'#a78bfa', borderWidth:1 }}]
-  }},
+  data:{{ labels:{fv_labels}, datasets:{fv_first_datasets} }},
   options:{{
     responsive:true,
-    plugins:{{ legend:{{ labels:{{ color:'#94a3b8' }} }} }},
+    plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
     scales:{{
-      x:{{ ticks:{{ color:'#64748b' }}, grid:{{ color:'#1e293b' }} }},
-      y:{{ ticks:{{ color:'#64748b' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
+      x:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
+      y:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
+    }}
+  }}
+}});
+
+// 월별 원장별 재초진 (grouped bar, 3개월)
+new Chart(document.getElementById('followVisitBar'), {{
+  type:'bar',
+  data:{{ labels:{fv_labels}, datasets:{fv_follow_datasets} }},
+  options:{{
+    responsive:true,
+    plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
+    scales:{{
+      x:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
+      y:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
     }}
   }}
 }});
@@ -1288,6 +1337,7 @@ def main():
     doc_monthly   = calc_doc_monthly(df_doc)
     ml, mkbo, mjbo, mnins = calc_monthly_revenue(df_receipt)
     npl, npc = calc_new_patients_monthly(df_customer)
+    doc_first_monthly = calc_doc_first_visits_monthly(df_doc)
     print(f"  총 {len(all_weeks)}주 데이터 계산 완료")
 
     # 노션 회고 동기화 결과 로드 (없으면 빈 배열)
@@ -1310,6 +1360,7 @@ def main():
         "monthly_nins":  mnins,
         "np_labels":     npl,
         "np_counts":     npc,
+        "doc_first_monthly": doc_first_monthly,
         "retros":        retros,
     }
 

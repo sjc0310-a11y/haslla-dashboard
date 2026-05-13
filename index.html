@@ -131,7 +131,7 @@
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 13일 10:17 기준</span><br>
+    <span class="updated">2026년 05월 13일 10:49 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -291,11 +291,17 @@
     <canvas id="revBar" height="80"></canvas>
   </div>
 
-  <!-- ═══ 신환 현황 (고정) ════════════════════════════════ -->
-  <div class="section-title">신환 현황 (최근 6개월)<span class="fixed-badge">고정</span></div>
-  <div class="chart-box">
-    <h3>월별 신환 수</h3>
-    <canvas id="newPat" height="80"></canvas>
+  <!-- ═══ 원장별 초진·재초진 (고정) ═══════════════════════ -->
+  <div class="section-title">원장별 초진·재초진 현황 (최근 3개월)<span class="fixed-badge">고정</span></div>
+  <div class="grid2">
+    <div class="chart-box">
+      <h3>월별 원장별 <span style="color:#a78bfa">초진</span></h3>
+      <canvas id="firstVisitBar" height="160"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>월별 원장별 <span style="color:#60a5fa">재초진</span></h3>
+      <canvas id="followVisitBar" height="160"></canvas>
+    </div>
   </div>
 
   <!-- ═══ 주간 회고 (노션 DB → 매일 자동 동기화) ══════════ -->
@@ -822,20 +828,30 @@ new Chart(document.getElementById('revBar'), {
   }
 });
 
-// 신환 바차트
-new Chart(document.getElementById('newPat'), {
+// 월별 원장별 초진 (grouped bar, 3개월)
+new Chart(document.getElementById('firstVisitBar'), {
   type:'bar',
-  data:{
-    labels:["2025.12", "2026.01", "2026.02", "2026.03", "2026.04", "2026.05"],
-    datasets:[{ label:'신환 수', data:[194, 212, 172, 223, 228, 64],
-                 backgroundColor:'#a78bfa80', borderColor:'#a78bfa', borderWidth:1 }]
-  },
+  data:{ labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "노왕식", "data": [0, 0, 0], "backgroundColor": "#3b82f6"}, {"label": "이문환", "data": [0, 0, 0], "backgroundColor": "#10b981"}, {"label": "방민준", "data": [0, 0, 0], "backgroundColor": "#f59e0b"}, {"label": "김한중", "data": [0, 0, 0], "backgroundColor": "#38bdf8"}] },
   options:{
     responsive:true,
-    plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+    plugins:{ legend:{ labels:{ color:'#e2e8f0', font:{size:11, weight:'600'} } } },
     scales:{
-      x:{ ticks:{ color:'#64748b' }, grid:{ color:'#1e293b' } },
-      y:{ ticks:{ color:'#64748b' }, grid:{ color:'#334155' }, beginAtZero:true }
+      x:{ ticks:{ color:'#94a3b8' }, grid:{ color:'#1e293b' } },
+      y:{ ticks:{ color:'#94a3b8' }, grid:{ color:'#334155' }, beginAtZero:true }
+    }
+  }
+});
+
+// 월별 원장별 재초진 (grouped bar, 3개월)
+new Chart(document.getElementById('followVisitBar'), {
+  type:'bar',
+  data:{ labels:["2026.03", "2026.04", "2026.05"], datasets:[{"label": "노왕식", "data": [0, 0, 0], "backgroundColor": "#3b82f6"}, {"label": "이문환", "data": [0, 0, 0], "backgroundColor": "#10b981"}, {"label": "방민준", "data": [0, 0, 0], "backgroundColor": "#f59e0b"}, {"label": "김한중", "data": [0, 0, 0], "backgroundColor": "#38bdf8"}] },
+  options:{
+    responsive:true,
+    plugins:{ legend:{ labels:{ color:'#e2e8f0', font:{size:11, weight:'600'} } } },
+    scales:{
+      x:{ ticks:{ color:'#94a3b8' }, grid:{ color:'#1e293b' } },
+      y:{ ticks:{ color:'#94a3b8' }, grid:{ color:'#334155' }, beginAtZero:true }
     }
   }
 });
