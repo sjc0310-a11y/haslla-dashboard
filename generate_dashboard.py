@@ -682,6 +682,19 @@ def build_html(data):
     </div>
   </div>
 
+  <!-- ═══ 재진/삼진률 추이 (최근 12주) ════════════════════ -->
+  <div class="section-title">원장별 재진률·삼진률 추이 (최근 12주)<span class="fixed-badge">고정</span></div>
+  <div class="grid2">
+    <div class="chart-box">
+      <h3>재진률 추이 <span style="color:#475569;font-size:0.7rem">목표 80%</span></h3>
+      <canvas id="revisitTrend" height="180"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>삼진률 추이 <span style="color:#475569;font-size:0.7rem">목표 70%</span></h3>
+      <canvas id="thirdTrend" height="180"></canvas>
+    </div>
+  </div>
+
   <!-- ═══ 추나 현황 (동적) ════════════════════════════════ -->
   <div class="section-title" id="chunaSectionTitle">원장별 추나 현황</div>
   <div class="grid3">
@@ -1276,6 +1289,42 @@ new Chart(document.getElementById('docMonthBar'), {{
     }}
   }}
 }});
+
+// 재진률·삼진률 추이 (최근 12주, 원장별 라인) — allWeeks 데이터 그대로 사용
+(function() {{
+  var recent = allWeeks.slice(-12);
+  var lbls = recent.map(function(w) {{ return w.label.slice(5); }});  // MM-DD
+  function ds(metric) {{
+    return activeDoctors.map(function(doc) {{
+      return {{
+        label: doc,
+        data: recent.map(function(w) {{
+          var r = (w.retention || {{}})[doc];
+          return r && r[metric] != null ? r[metric] : null;
+        }}),
+        borderColor: docColorMap[doc] || '#94a3b8',
+        backgroundColor: (docColorMap[doc] || '#94a3b8') + '33',
+        tension: 0.25, spanGaps: true, fill: false, borderWidth: 2,
+        pointRadius: 3, pointHoverRadius: 5
+      }};
+    }});
+  }}
+  var trendOpts = {{
+    responsive:true,
+    plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
+    scales:{{
+      x:{{ ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
+      y:{{ ticks:{{ color:'#94a3b8', callback:function(v) {{ return v + '%'; }} }},
+           grid:{{ color:'#334155' }}, beginAtZero:true, suggestedMax:100 }}
+    }}
+  }};
+  new Chart(document.getElementById('revisitTrend'), {{
+    type:'line', data:{{ labels:lbls, datasets:ds('revisit_rate') }}, options:trendOpts
+  }});
+  new Chart(document.getElementById('thirdTrend'), {{
+    type:'line', data:{{ labels:lbls, datasets:ds('third_rate') }}, options:trendOpts
+  }});
+}})();
 
 // 초진/재초진 차트 — TA초진 / 건보초진 (원장별 grouped) + 종합 (stacked)
 var _fvOpts = {{
