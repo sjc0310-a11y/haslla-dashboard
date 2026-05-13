@@ -9,15 +9,24 @@ LOCAL_DIR = Path(r"C:\Users\하슬라한의원\한의원지표\data")
 OUT_HTML  = Path(r"C:\Users\하슬라한의원\한의원지표\index.html")
 
 SEP = "'!@#%'"
-DOCTORS = ["노왕식", "이문환", "방민준"]
+
+# ─── 원장 명단 (퇴사·입사 시 여기만 수정하면 됨) ────────────
+# DOCTORS: 추나 차트(chunaPie/chunaMonthBar 등)에 표시할 진료 중인 원장
+# ACTIVE_DOCTORS: 개인 뷰 선택 화면에 표시할 진료 중인 모든 원장 (매출 진료만 하는 원장 포함)
+# EXCLUDE_FROM_STATS: 통계 집계에서 빼는 사람 (선주천=대표원장 진료 없음, 퇴사 원장 등)
+# DOC_COLORS: 색상 매핑. 퇴사한 원장도 과거 트렌드 차트용으로 유지하는 게 안전.
+DOCTORS         = ["노왕식", "이문환", "방민준"]
+ACTIVE_DOCTORS  = ["노왕식", "이문환", "방민준", "김한중"]
+EXCLUDE_FROM_STATS = ["선주천", "배용빈"]
+
 KBO_CODES = {"W","V","1","T","C","M","L","3","4","5","7"}
 
 DOC_COLORS = {
     "노왕식": "#3b82f6",
     "이문환": "#10b981",
     "방민준": "#f59e0b",
-    "배용빈": "#f472b6",
     "김한중": "#38bdf8",
+    "배용빈": "#f472b6",  # 2026-05 퇴사 — 색상은 과거 차트용으로 유지
 }
 
 # ─── 데이터 로드 ──────────────────────────────────────────
@@ -251,7 +260,7 @@ def calc_doc_monthly(df_doc):
     df = df_doc.copy()
     df["month"] = df["날짜"].dt.to_period("M").apply(lambda p: p.start_time)
     months = sorted(df["month"].unique())[-3:]
-    all_docs = sorted(d for d in df["원장명"].unique() if d != "선주천")
+    all_docs = sorted(d for d in df["원장명"].unique() if d not in EXCLUDE_FROM_STATS)
     result = {
         "labels": [m.strftime("%Y.%m") for m in months],
         "docs":   all_docs,
@@ -391,6 +400,12 @@ def build_html(data):
     # ── 노션 회고 JSON ────────────────────────────────────
     retros_json = json.dumps(d.get("retros", []), ensure_ascii=False)
 
+    # ── 원장 선택 버튼 (ACTIVE_DOCTORS 기반 동적 생성) ────
+    select_doc_buttons = "".join(
+        f'\n    <button class="select-doc-btn" onclick="selectDoctor(\'{doc}\')">{doc} 원장</button>'
+        for doc in ACTIVE_DOCTORS
+    )
+
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -505,13 +520,7 @@ def build_html(data):
   <div style="font-size:2.2rem;margin-bottom:8px">🏥</div>
   <h2>하슬라한의원 원장팀 대시보드</h2>
   <p>본인의 대시보드를 선택하세요</p>
-  <div class="select-btns">
-    <button class="select-doc-btn" onclick="selectDoctor('노왕식')">노왕식 원장</button>
-    <button class="select-doc-btn" onclick="selectDoctor('이문환')">이문환 원장</button>
-    <button class="select-doc-btn" onclick="selectDoctor('방민준')">방민준 원장</button>
-    <button class="select-doc-btn" onclick="selectDoctor('배용빈')">배용빈 원장</button>
-    <button class="select-doc-btn" onclick="selectDoctor('김한중')">김한중 원장</button>
-  </div>
+  <div class="select-btns">{select_doc_buttons}</div>
   <p style="margin-top:20px;font-size:0.78rem;color:#475569">선택한 원장의 개인뷰가 표시됩니다. 언제든 홈 버튼으로 돌아올 수 있습니다.</p>
 </div>
 
@@ -719,6 +728,7 @@ var currentIdx = allWeeks.length > 0 ? allWeeks.length - 1 : 0;
   }}
 }})();
 var chunaDoctors  = {json.dumps(DOCTORS, ensure_ascii=False)};
+var activeDoctors = {json.dumps(ACTIVE_DOCTORS, ensure_ascii=False)};
 var docColorMap   = {doc_colors_json};
 var myDoc      = localStorage.getItem('haslla_myDoc') || null;
 var retroDoc   = myDoc || chunaDoctors[0] || '노왕식';
@@ -1110,12 +1120,12 @@ function findRetro(weekLabel, doc) {{
 }}
 
 function renderRetroBox(weekLabel) {{
-  if (!retroSelectedDoc) retroSelectedDoc = myDoc || chunaDoctors[0] || '노왕식';
+  if (!retroSelectedDoc) retroSelectedDoc = myDoc || activeDoctors[0] || '노왕식';
 
-  // 탭
+  // 탭 (현재 진료 중인 원장 기준)
   var tabsHtml = '';
-  for (var i=0; i<chunaDoctors.length; i++) {{
-    var doc = chunaDoctors[i];
+  for (var i=0; i<activeDoctors.length; i++) {{
+    var doc = activeDoctors[i];
     var has = !!findRetro(weekLabel, doc);
     tabsHtml +=
       '<button class="retro-tab' + (doc===retroSelectedDoc?' active':'') + '" ' +
@@ -1264,13 +1274,13 @@ def main():
 
     df_ret        = load_retention()
 
-    # 선주천 제외 (모든 원장별 데이터에서)
+    # 통계 제외 원장 (대표원장·퇴사자) — EXCLUDE_FROM_STATS 한 줄로 관리
     if not df_doc.empty:
-        df_doc = df_doc[df_doc["원장명"] != "선주천"].reset_index(drop=True)
+        df_doc = df_doc[~df_doc["원장명"].isin(EXCLUDE_FROM_STATS)].reset_index(drop=True)
     if not df_ret.empty:
-        df_ret = df_ret[df_ret["원장명"] != "선주천"].reset_index(drop=True)
+        df_ret = df_ret[~df_ret["원장명"].isin(EXCLUDE_FROM_STATS)].reset_index(drop=True)
     if not df_chuna.empty:
-        df_chuna = df_chuna[df_chuna["원장명"] != "선주천"].reset_index(drop=True)
+        df_chuna = df_chuna[~df_chuna["원장명"].isin(EXCLUDE_FROM_STATS)].reset_index(drop=True)
 
     print("지표 계산 중...")
     all_weeks     = calc_all_weeks_data(df_receipt, df_detail, df_customer, df_chuna, df_doc, df_ret)
