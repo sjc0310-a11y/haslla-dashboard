@@ -421,7 +421,7 @@ def build_html(data):
     # ── 6개월 트렌드 ──────────────────────────────────────
     np_labels      = json.dumps(d["np_labels"])
     np_counts      = json.dumps(d["np_counts"])
-    # 월별 원장별 TA초진/건보초진/재초진 (3개월)
+    # 월별 원장별 TA초진/건보초진 (3개월) + 월별 한의원 총합 (초진/재초진)
     dfm = d["doc_first_monthly"]
     fv_labels = json.dumps(dfm["labels"])
     def _doc_datasets(series_key):
@@ -429,9 +429,16 @@ def build_html(data):
             {"label": doc, "data": dfm[series_key][doc], "backgroundColor": DOC_COLORS.get(doc, "#94a3b8")}
             for doc in dfm["docs"]
         ], ensure_ascii=False)
-    fv_ta_datasets     = _doc_datasets("ta")
-    fv_kbo_datasets    = _doc_datasets("kbo")
-    fv_follow_datasets = _doc_datasets("follow")
+    fv_ta_datasets  = _doc_datasets("ta")
+    fv_kbo_datasets = _doc_datasets("kbo")
+    # 월별 한의원 전체 합계 (모든 원장 합산)
+    n_months = len(dfm["labels"])
+    total_first  = [sum(dfm["ta"][doc][i] + dfm["kbo"][doc][i] for doc in dfm["docs"]) for i in range(n_months)]
+    total_follow = [sum(dfm["follow"][doc][i]                   for doc in dfm["docs"]) for i in range(n_months)]
+    fv_total_datasets = json.dumps([
+        {"label": "초진 (TA+건보)", "data": total_first,  "backgroundColor": "#a78bfa"},
+        {"label": "재초진",         "data": total_follow, "backgroundColor": "#60a5fa"},
+    ], ensure_ascii=False)
 
     # ── 전체 주간 JSON ────────────────────────────────────
     all_weeks_json = json.dumps(all_weeks, ensure_ascii=False)
@@ -739,8 +746,8 @@ def build_html(data):
       <canvas id="kboFirstBar" height="200"></canvas>
     </div>
     <div class="chart-box">
-      <h3>월별 원장별 <span style="color:#60a5fa">재초진</span></h3>
-      <canvas id="followVisitBar" height="200"></canvas>
+      <h3>월별 <span style="color:#a78bfa">초진</span> + <span style="color:#60a5fa">재초진</span> 종합</h3>
+      <canvas id="totalVisitBar" height="200"></canvas>
     </div>
   </div>
 
@@ -1260,7 +1267,7 @@ new Chart(document.getElementById('docMonthBar'), {{
   }}
 }});
 
-// 월별 원장별 초진/재초진 차트 — 3개 (TA초진 / 건보초진 / 재초진)
+// 초진/재초진 차트 — TA초진 / 건보초진 (원장별 grouped) + 종합 (stacked)
 var _fvOpts = {{
   responsive:true,
   plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
@@ -1275,8 +1282,17 @@ new Chart(document.getElementById('taFirstBar'), {{
 new Chart(document.getElementById('kboFirstBar'), {{
   type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_kbo_datasets} }}, options:_fvOpts
 }});
-new Chart(document.getElementById('followVisitBar'), {{
-  type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_follow_datasets} }}, options:_fvOpts
+// 종합 (stacked: 초진 아래, 재초진 위)
+new Chart(document.getElementById('totalVisitBar'), {{
+  type:'bar', data:{{ labels:{fv_labels}, datasets:{fv_total_datasets} }},
+  options:{{
+    responsive:true,
+    plugins:{{ legend:{{ labels:{{ color:'#e2e8f0', font:{{size:11, weight:'600'}} }} }} }},
+    scales:{{
+      x:{{ stacked:true, ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#1e293b' }} }},
+      y:{{ stacked:true, ticks:{{ color:'#94a3b8' }}, grid:{{ color:'#334155' }}, beginAtZero:true }}
+    }}
+  }}
 }});
 
 // 초기 렌더
