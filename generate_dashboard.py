@@ -1,7 +1,23 @@
 import pandas as pd
 import json
+import sys, subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
+
+# OK차트 DB 직접 연결 — read_okchart.py의 CONN_STR 재사용
+try:
+    import pyodbc
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyodbc"])
+    import pyodbc
+
+_CONN = None
+def _get_conn():
+    global _CONN
+    if _CONN is None:
+        from read_okchart import CONN_STR
+        _CONN = pyodbc.connect(CONN_STR, timeout=15)
+    return _CONN
 
 # ─── 경로 설정 ────────────────────────────────────────────
 DATA_DIR  = Path(r"C:\Users\하슬라한의원\AppData\Local\Programs\migrator\resources\data")
@@ -31,62 +47,46 @@ DOC_COLORS = {
 
 # ─── 데이터 로드 ──────────────────────────────────────────
 def load_receipt():
-    rows = []
-    with open(DATA_DIR / "receipt.txt", encoding="utf-8") as f:
-        for line in f:
-            parts = line.strip().split(SEP)
-            if len(parts) < 7:
-                continue
-            try:
-                rows.append({
-                    "patient": parts[1],
-                    "date":    pd.to_datetime(parts[2]),
-                    "code":    parts[3],
-                    "copay":   int(parts[4]) if parts[4].strip().lstrip('-').isdigit() else 0,
-                    "claim":   int(parts[5]) if parts[5].strip().lstrip('-').isdigit() else 0,
-                    "nonins":  int(parts[6]) if parts[6].strip().lstrip('-').isdigit() else 0,
-                })
-            except:
-                pass
-    return pd.DataFrame(rows)
+    """OK차트 Receipt 테이블 직접 쿼리 (migrator 의존 제거)"""
+    sql = """SELECT Customer_name AS patient, TxDate AS date,
+                    Calcu_Type AS code,
+                    CAST(ISNULL(Bonin_Money, 0) AS INT)    AS copay,
+                    CAST(ISNULL(CheongGu_Money, 0) AS INT) AS claim,
+                    CAST(ISNULL(General_Money, 0) AS INT)  AS nonins
+             FROM Receipt
+             WHERE TxDate IS NOT NULL"""
+    df = pd.read_sql(sql, _get_conn())
+    df["date"] = pd.to_datetime(df["date"])
+    df["code"] = df["code"].fillna("").astype(str)
+    return df
 
 def load_detail():
-    rows = []
-    with open(DATA_DIR / "detail.txt", encoding="utf-8") as f:
-        for line in f:
-            parts = line.strip().split(SEP)
-            if len(parts) < 10:
-                continue
-            try:
-                rows.append({
-                    "visit":     parts[1],
-                    "patient":   parts[2],
-                    "date":      pd.to_datetime(parts[3]),
-                    "category":  parts[4],
-                    "treatment": parts[7],
-                    "insured":   parts[8],
-                    "fee":       int(parts[9]) if parts[9].strip().lstrip('-').isdigit() else 0,
-                })
-            except:
-                pass
-    return pd.DataFrame(rows)
+    """OK차트 Detail 테이블 직접 쿼리"""
+    sql = """SELECT sn         AS visit,
+                    Customer_PK AS patient,
+                    TxDate     AS date,
+                    TxItem     AS category,
+                    PxName     AS treatment,
+                    CAST(InsuYes AS INT) AS insured,
+                    CAST(ISNULL(TxMoney, 0) AS INT) AS fee
+             FROM Detail
+             WHERE TxDate IS NOT NULL"""
+    df = pd.read_sql(sql, _get_conn())
+    df["date"] = pd.to_datetime(df["date"])
+    df["treatment"] = df["treatment"].fillna("").astype(str)
+    df["category"]  = df["category"].fillna("").astype(str)
+    return df
 
 def load_customer():
-    rows = []
-    with open(DATA_DIR / "customer.txt", encoding="utf-8") as f:
-        for line in f:
-            parts = line.strip().split(SEP)
-            if len(parts) < 4:
-                continue
-            try:
-                rows.append({
-                    "patient": parts[1],
-                    "date":    pd.to_datetime(parts[2]),
-                    "route":   parts[3],
-                })
-            except:
-                pass
-    return pd.DataFrame(rows)
+    """OK차트 Customer 테이블 직접 쿼리 (등록일=신환일)"""
+    sql = """SELECT name AS patient,
+                    reg_date AS date,
+                    CAST('' AS NVARCHAR(50)) AS route
+             FROM Customer
+             WHERE reg_date IS NOT NULL"""
+    df = pd.read_sql(sql, _get_conn())
+    df["date"] = pd.to_datetime(df["date"])
+    return df
 
 def load_chuna():
     path = LOCAL_DIR / "추나현황.csv"
