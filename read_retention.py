@@ -1,6 +1,6 @@
 """
 OK차트 DB → 원장별 주별 재진/삼진률 계산
-출력: data/retention.csv
+출력: data/retention.csv (요약) + data/retention_patients.json (환자명단)
 
 계산 원칙:
   · 재초진 기준: 전체 내원 공백 45일 초과
@@ -10,7 +10,8 @@ OK차트 DB → 원장별 주별 재진/삼진률 계산
   · 삼진률: 코호트 중 기준일까지 3회 이상 내원 비율
 """
 
-import csv
+import csv, json
+from collections import defaultdict
 from pathlib import Path
 from datetime import date, timedelta
 
@@ -29,6 +30,7 @@ CONN_STR = (
     "PWD=msp1234;"
 )
 CSV_PATH = Path(r"C:\Users\하슬라한의원\한의원지표\data\retention.csv")
+PATIENTS_JSON = Path(r"C:\Users\하슬라한의원\한의원지표\data\retention_patients.json")
 GAP_DAYS = 45
 
 
@@ -36,7 +38,8 @@ def get_monday(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
-def compute_week(cursor, ref_monday: date) -> dict:
+def compute_week(cursor, ref_monday: date):
+    """returns (summary_dict, patients_dict)"""
     cohort_start = ref_monday - timedelta(days=21)
     cohort_end   = ref_monday - timedelta(days=15)
     track_end    = ref_monday - timedelta(days=1)
@@ -67,8 +70,6 @@ def compute_week(cursor, ref_monday: date) -> dict:
                   AND CONVERT(DATE, d.TxDate) = es.visit_date
                 ORDER BY d.Detail_PK ASC) AS first_doctor
         FROM episode_starts es
-        -- 비급여 전용 환자 제외: 코호트 시작일에 건보/자보 항목(InsuYes=1)이 있어야 함
-        -- (한약, 다이어트, 감기 비급여 약만 받은 환자 제외)
         WHERE EXISTS (
             SELECT 1 FROM Detail d2
             WHERE d2.Customer_PK = es.Customer_PK
@@ -77,40 +78,43 @@ def compute_week(cursor, ref_monday: date) -> dict:
         )
     ),
     visit_counts AS (
-        SELECT c.Customer_PK, c.first_doctor,
+        SELECT c.Customer_PK, c.first_doctor, c.cohort_date,
                COUNT(DISTINCT CONVERT(DATE, d.TxDate)) AS visit_count
         FROM cohort c
         JOIN Detail d ON d.Customer_PK = c.Customer_PK
         WHERE CONVERT(DATE, d.TxDate) BETWEEN c.cohort_date AND '{track_end}'
-        GROUP BY c.Customer_PK, c.first_doctor
+        GROUP BY c.Customer_PK, c.first_doctor, c.cohort_date
     )
-    SELECT
-        first_doctor,
-        COUNT(*)                                                                   AS 코호트,
-        SUM(CASE WHEN visit_count >= 2 THEN 1 ELSE 0 END)                         AS 재진,
-        SUM(CASE WHEN visit_count >= 3 THEN 1 ELSE 0 END)                         AS 삼진,
-        ROUND(100.0 * SUM(CASE WHEN visit_count >= 2 THEN 1 ELSE 0 END)
-              / NULLIF(COUNT(*), 0), 1)                                            AS 재진률,
-        ROUND(100.0 * SUM(CASE WHEN visit_count >= 3 THEN 1 ELSE 0 END)
-              / NULLIF(COUNT(*), 0), 1)                                            AS 삼진률
-    FROM visit_counts
-    WHERE first_doctor != N'선주천'
-    GROUP BY first_doctor
-    ORDER BY first_doctor
+    SELECT vc.first_doctor, cust.name, vc.cohort_date, vc.visit_count
+    FROM visit_counts vc
+    JOIN Customer cust ON cust.Customer_PK = vc.Customer_PK
+    WHERE vc.first_doctor != N'선주천'
+    ORDER BY vc.first_doctor, vc.visit_count DESC, cust.name
     """
 
     cursor.execute(sql)
-    results = {}
+    patients = defaultdict(list)
     for row in cursor.fetchall():
         doc = str(row[0])
-        results[doc] = {
-            "cohort":       int(row[1] or 0),
-            "revisit":      int(row[2] or 0),
-            "third":        int(row[3] or 0),
-            "revisit_rate": float(row[4] or 0),
-            "third_rate":   float(row[5] or 0),
+        patients[doc].append({
+            "name":   str(row[1] or ""),
+            "cohort_date": str(row[2]),
+            "visits": int(row[3] or 0),
+        })
+
+    summary = {}
+    for doc, pts in patients.items():
+        n = len(pts)
+        re_n  = sum(1 for p in pts if p["visits"] >= 2)
+        thr_n = sum(1 for p in pts if p["visits"] >= 3)
+        summary[doc] = {
+            "cohort":       n,
+            "revisit":      re_n,
+            "third":        thr_n,
+            "revisit_rate": round(100.0 * re_n / n, 1) if n else 0.0,
+            "third_rate":   round(100.0 * thr_n / n, 1) if n else 0.0,
         }
-    return results
+    return summary, dict(patients)
 
 
 def main():
@@ -123,15 +127,16 @@ def main():
     end_monday   = get_monday(today)
 
     rows = []
+    patients_all = {}  # {ref_date_str: {doctor: [{name, cohort_date, visits}, ...]}}
     ref = start_monday
     while ref <= end_monday:
         cohort_s = ref - timedelta(days=21)
         cohort_e = ref - timedelta(days=15)
         print(f"  {ref} 기준 (코호트 {cohort_s}~{cohort_e})", end=" ... ", flush=True)
 
-        week_data = compute_week(cursor, ref)
-        if week_data:
-            for doc, v in week_data.items():
+        summary, patients = compute_week(cursor, ref)
+        if summary:
+            for doc, v in summary.items():
                 rows.append({
                     "날짜":   str(ref),
                     "원장명":  doc,
@@ -141,9 +146,10 @@ def main():
                     "재진률": v["revisit_rate"],
                     "삼진률": v["third_rate"],
                 })
+            patients_all[str(ref)] = patients
             print(", ".join(
                 f"{d}({v['revisit_rate']}%/{v['third_rate']}%)"
-                for d, v in week_data.items()
+                for d, v in summary.items()
             ))
         else:
             print("데이터 없음")
@@ -158,7 +164,11 @@ def main():
         w.writeheader()
         w.writerows(rows)
 
+    with open(PATIENTS_JSON, "w", encoding="utf-8") as f:
+        json.dump(patients_all, f, ensure_ascii=False, indent=1)
+
     print(f"\n완료: {len(rows)}행 → {CSV_PATH}")
+    print(f"환자 명단: {sum(len(d) for d in patients_all.values())} 그룹 → {PATIENTS_JSON}")
 
 
 if __name__ == "__main__":

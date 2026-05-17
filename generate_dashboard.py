@@ -455,6 +455,7 @@ def build_html(data):
 
     # ── 노션 회고 JSON ────────────────────────────────────
     retros_json = json.dumps(d.get("retros", []), ensure_ascii=False)
+    retention_patients_json = json.dumps(d.get("retention_patients", {}), ensure_ascii=False)
 
     # ── 원장 선택 버튼 (ACTIVE_DOCTORS 기반 동적 생성) ────
     select_doc_buttons = "".join(
@@ -792,6 +793,17 @@ def build_html(data):
 
 </div>
 
+<!-- 코호트 환자명단 모달 -->
+<div id="cohortModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:center;justify-content:center" onclick="if(event.target.id==='cohortModal') closeCohortModal()">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;max-width:560px;width:92%;max-height:80vh;display:flex;flex-direction:column">
+    <div style="padding:16px 22px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between">
+      <h3 id="cohortModalTitle" style="font-size:0.95rem;color:#f1f5f9;font-weight:700"></h3>
+      <button onclick="closeCohortModal()" style="background:none;border:none;color:#94a3b8;font-size:1.4rem;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="cohortModalBody" style="padding:14px 22px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <script>
 var allWeeks   = {all_weeks_json};
 var currentIdx = allWeeks.length > 0 ? allWeeks.length - 1 : 0;
@@ -811,6 +823,7 @@ var myDoc      = localStorage.getItem('haslla_myDoc') || null;
 var retroDoc   = myDoc || chunaDoctors[0] || '노왕식';
 var retros     = {retros_json};
 var retroSelectedDoc = null;
+var retentionPatients = {retention_patients_json};
 
 // ── 원장 선택 / 개인뷰 ────────────────────────────────────
 function selectDoctor(name) {{
@@ -1077,13 +1090,17 @@ function renderWeek(idx) {{
       var r = rt[rtDocs[i]];
       var revColor = r.revisit_rate >= 70 ? '#10b981' : r.revisit_rate >= 55 ? '#f59e0b' : '#ef4444';
       var thiColor = r.third_rate  >= 60 ? '#10b981' : r.third_rate  >= 45 ? '#f59e0b' : '#ef4444';
+      var weekLabel = week.label;
+      var clickAttr = function(kind) {{
+        return ' onclick="showCohortPatients(\\'' + weekLabel + '\\',\\'' + rtDocs[i] + '\\',\\'' + kind + '\\')" style="cursor:pointer" title="클릭하면 환자 명단"';
+      }};
       rttbl += '<tr>' +
         '<td class="doc-name" style="border-left:3px solid ' + color(rtDocs[i]) + ';padding-left:8px">' + rtDocs[i] + '</td>' +
-        '<td class="num">' + r.cohort + '명</td>' +
-        '<td class="num">' + r.revisit + '명</td>' +
-        '<td class="num" style="color:' + revColor + ';font-weight:700">' + r.revisit_rate + '%</td>' +
-        '<td class="num">' + r.third + '명</td>' +
-        '<td class="num" style="color:' + thiColor + ';font-weight:700">' + r.third_rate + '%</td>' +
+        '<td class="num"' + clickAttr('cohort')  + '>' + r.cohort  + '명</td>' +
+        '<td class="num"' + clickAttr('revisit') + '>' + r.revisit + '명</td>' +
+        '<td class="num" style="color:' + revColor + ';font-weight:700;cursor:pointer" onclick="showCohortPatients(\\'' + weekLabel + '\\',\\'' + rtDocs[i] + '\\',\\'revisit\\')" title="클릭하면 환자 명단">' + r.revisit_rate + '%</td>' +
+        '<td class="num"' + clickAttr('third')   + '>' + r.third   + '명</td>' +
+        '<td class="num" style="color:' + thiColor + ';font-weight:700;cursor:pointer" onclick="showCohortPatients(\\'' + weekLabel + '\\',\\'' + rtDocs[i] + '\\',\\'third\\')" title="클릭하면 환자 명단">' + r.third_rate + '%</td>' +
         '<td class="num" style="color:#475569;font-size:0.75rem">n=' + r.cohort + '</td>' +
         '</tr>';
     }}
@@ -1264,6 +1281,52 @@ function selectRetroDoc(doc) {{
   renderRetroBox(allWeeks[currentIdx].label);
 }}
 
+// ── 코호트 환자명단 모달 ──────────────────────────────────
+function showCohortPatients(weekLabel, doctor, kind) {{
+  var titleMap = {{cohort:'전체 코호트', revisit:'재진 (2회 이상 내원)', third:'삼진 (3회 이상 내원)'}};
+  var titleEl = document.getElementById('cohortModalTitle');
+  var bodyEl  = document.getElementById('cohortModalBody');
+  titleEl.textContent = doctor + ' 원장 — ' + (titleMap[kind] || kind) + ' (기준 ' + weekLabel + ')';
+
+  var weekData = retentionPatients[weekLabel];
+  if (!weekData || !weekData[doctor]) {{
+    bodyEl.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:30px">이 주의 환자 명단 데이터가 없습니다.<br><span style="font-size:0.75rem;color:#475569">최근 12주 데이터만 로드됩니다.</span></p>';
+    document.getElementById('cohortModal').style.display = 'flex';
+    return;
+  }}
+  var list = weekData[doctor].slice();
+  if (kind === 'revisit') list = list.filter(function(p) {{ return p.visits >= 2; }});
+  else if (kind === 'third') list = list.filter(function(p) {{ return p.visits >= 3; }});
+
+  if (list.length === 0) {{
+    bodyEl.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:30px">해당하는 환자가 없습니다.</p>';
+  }} else {{
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem">' +
+      '<thead><tr style="color:#94a3b8;font-size:0.72rem;text-transform:uppercase">' +
+      '<th style="text-align:left;padding:7px 4px;border-bottom:1px solid #334155">환자명</th>' +
+      '<th style="text-align:left;padding:7px 4px;border-bottom:1px solid #334155">코호트 시작일</th>' +
+      '<th style="text-align:right;padding:7px 4px;border-bottom:1px solid #334155">내원 횟수</th>' +
+      '</tr></thead><tbody>';
+    for (var i=0; i<list.length; i++) {{
+      var p = list[i];
+      var vcolor = p.visits >= 3 ? '#10b981' : p.visits >= 2 ? '#f59e0b' : '#ef4444';
+      html += '<tr>' +
+        '<td style="padding:8px 4px;border-bottom:1px solid #1e293b;color:#e2e8f0">' + escHtml(p.name) + '</td>' +
+        '<td style="padding:8px 4px;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:0.78rem">' + (p.cohort_date || '-') + '</td>' +
+        '<td style="padding:8px 4px;border-bottom:1px solid #1e293b;text-align:right;color:' + vcolor + ';font-weight:700">' + p.visits + '회</td>' +
+        '</tr>';
+    }}
+    html += '</tbody></table>' +
+      '<p style="color:#475569;font-size:0.7rem;margin-top:10px">색: <span style="color:#10b981">●</span>3회+ · <span style="color:#f59e0b">●</span>2회 · <span style="color:#ef4444">●</span>1회</p>';
+    bodyEl.innerHTML = html;
+  }}
+  document.getElementById('cohortModal').style.display = 'flex';
+}}
+
+function closeCohortModal() {{
+  document.getElementById('cohortModal').style.display = 'none';
+}}
+
 // ── 고정 차트들 ───────────────────────────────────────────
 
 // 주간 건보추나 바차트
@@ -1437,6 +1500,19 @@ def main():
         except Exception as e:
             print(f"  회고 로드 실패 (빈 배열로 진행): {e}")
 
+    # 재진/삼진 코호트 환자 명단 (최근 12주만 임베드)
+    patients_path = LOCAL_DIR / "retention_patients.json"
+    retention_patients = {}
+    if patients_path.exists():
+        try:
+            all_patients = json.loads(patients_path.read_text(encoding="utf-8"))
+            # 최근 12주만 (날짜 string sort)
+            recent_dates = sorted(all_patients.keys())[-12:]
+            retention_patients = {k: all_patients[k] for k in recent_dates}
+            print(f"  재진 코호트 환자명단 {len(retention_patients)}주 로드")
+        except Exception as e:
+            print(f"  코호트 환자명단 로드 실패: {e}")
+
     data = {
         "all_weeks":     all_weeks,
         "chuna_monthly": chuna_monthly,
@@ -1445,6 +1521,7 @@ def main():
         "np_counts":     npc,
         "doc_first_monthly": doc_first_monthly,
         "retros":        retros,
+        "retention_patients": retention_patients,
     }
 
     print("HTML 생성 중...")
