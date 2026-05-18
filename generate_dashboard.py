@@ -47,21 +47,28 @@ DOC_COLORS = {
 
 # ─── 데이터 로드 ──────────────────────────────────────────
 def load_receipt():
-    """OK차트 Receipt 테이블 직접 쿼리 (migrator 의존 제거)"""
-    sql = """SELECT Customer_name AS patient, TxDate AS date,
-                    Calcu_Type AS code,
-                    CAST(ISNULL(Bonin_Money, 0) AS INT)    AS copay,
-                    CAST(ISNULL(CheongGu_Money, 0) AS INT) AS claim,
-                    CAST(ISNULL(General_Money, 0) AS INT)  AS nonins
-             FROM Receipt
-             WHERE TxDate IS NOT NULL"""
+    """OK차트 Receipt 테이블 직접 쿼리. 선주천(대시보드 비표시 대상) 단독
+    진료 receipt는 제외해서 KPI 매출이 원장별 표 합계와 일치하게 한다."""
+    sql = """SELECT r.Customer_name AS patient, r.TxDate AS date,
+                    r.Calcu_Type AS code,
+                    CAST(ISNULL(r.Bonin_Money, 0) AS INT)    AS copay,
+                    CAST(ISNULL(r.CheongGu_Money, 0) AS INT) AS claim,
+                    CAST(ISNULL(r.General_Money, 0) AS INT)  AS nonins
+             FROM Receipt r
+             WHERE r.TxDate IS NOT NULL
+               AND EXISTS (
+                   SELECT 1 FROM Detail d
+                   WHERE d.Customer_PK = r.Customer_PK
+                     AND CONVERT(DATE, d.TxDate) = CONVERT(DATE, r.TxDate)
+                     AND d.TxDoctor != N'선주천'
+               )"""
     df = pd.read_sql(sql, _get_conn())
     df["date"] = pd.to_datetime(df["date"])
     df["code"] = df["code"].fillna("").astype(str)
     return df
 
 def load_detail():
-    """OK차트 Detail 테이블 직접 쿼리"""
+    """OK차트 Detail 테이블. 선주천 진료 행은 제외 (대시보드 비표시 대상)"""
     sql = """SELECT sn         AS visit,
                     Customer_PK AS patient,
                     TxDate     AS date,
@@ -70,7 +77,8 @@ def load_detail():
                     CAST(InsuYes AS INT) AS insured,
                     CAST(ISNULL(TxMoney, 0) AS INT) AS fee
              FROM Detail
-             WHERE TxDate IS NOT NULL"""
+             WHERE TxDate IS NOT NULL
+               AND TxDoctor != N'선주천'"""
     df = pd.read_sql(sql, _get_conn())
     df["date"] = pd.to_datetime(df["date"])
     df["treatment"] = df["treatment"].fillna("").astype(str)
