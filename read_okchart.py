@@ -44,14 +44,16 @@ SELECT
     SUM(CAST(ISNULL(r.General_Money, 0)  AS BIGINT))         AS 비급여매출
 FROM Receipt r
 CROSS APPLY (
+    -- 선주천은 OK차트에 임시로 등록되는 doctor라 처음부터 제외하고
+    -- 실제 진료 원장(노왕식/이문환/방민준/김한중 등) 첫째를 가져온다
     SELECT TOP 1 d.TxDoctor
     FROM Detail d
     WHERE d.Customer_PK = r.Customer_PK
       AND CONVERT(DATE, d.TxDate) = CONVERT(DATE, r.TxDate)
+      AND d.TxDoctor != N'선주천'
     ORDER BY d.Detail_PK ASC
 ) doc
 WHERE r.TxDate >= DATEADD(month, -6, GETDATE())
-  AND doc.TxDoctor != N'선주천'
 GROUP BY CONVERT(DATE, r.TxDate), doc.TxDoctor, r.Calcu_Type
 ORDER BY 날짜, 원장명, 구분
 """
