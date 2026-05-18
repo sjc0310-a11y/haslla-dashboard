@@ -665,6 +665,23 @@ def build_html(data):
     </div>
   </div>
 
+  <!-- ═══ 원장별 초진·재초진 (고정) ═══════════════════════ -->
+  <div class="section-title">원장별 초진·재초진 현황 (최근 3개월)<span class="fixed-badge">고정</span></div>
+  <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="chart-box">
+      <h3>월별 원장별 <span style="color:#f59e0b">TA초진</span></h3>
+      <canvas id="taFirstBar" height="200"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>월별 원장별 <span style="color:#a78bfa">건보초진</span></h3>
+      <canvas id="kboFirstBar" height="200"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>월별 원장별 <span style="color:#cbd5e1">초진</span>(진한) + <span style="color:#94a3b8">재초진</span>(옅은)</h3>
+      <canvas id="totalVisitBar" height="200"></canvas>
+    </div>
+  </div>
+
   <!-- ═══ 원장별 매출 현황 (동적) ════════════════════════ -->
   <div class="section-title" id="docRevSectionTitle">원장별 매출 현황</div>
   <div class="grid3">
@@ -768,23 +785,6 @@ def build_html(data):
     <div class="chart-box">
       <h3>월별 건보추나 추이</h3>
       <canvas id="chunaMonthBar" height="220"></canvas>
-    </div>
-  </div>
-
-  <!-- ═══ 원장별 초진·재초진 (고정) ═══════════════════════ -->
-  <div class="section-title">원장별 초진·재초진 현황 (최근 3개월)<span class="fixed-badge">고정</span></div>
-  <div class="grid3" style="grid-template-columns:1fr 1fr 1fr">
-    <div class="chart-box">
-      <h3>월별 원장별 <span style="color:#f59e0b">TA초진</span></h3>
-      <canvas id="taFirstBar" height="200"></canvas>
-    </div>
-    <div class="chart-box">
-      <h3>월별 원장별 <span style="color:#a78bfa">건보초진</span></h3>
-      <canvas id="kboFirstBar" height="200"></canvas>
-    </div>
-    <div class="chart-box">
-      <h3>월별 원장별 <span style="color:#cbd5e1">초진</span>(진한) + <span style="color:#94a3b8">재초진</span>(옅은)</h3>
-      <canvas id="totalVisitBar" height="200"></canvas>
     </div>
   </div>
 
