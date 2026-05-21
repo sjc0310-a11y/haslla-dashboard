@@ -1,12 +1,16 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<title>부원장 1:1 면담</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow,noarchive">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>
+# -*- coding: utf-8 -*-
+"""1on1 대시보드의 HTML 템플릿.
+
+PAGE_TEMPLATE   — 한의원 PC 전용 편집 화면 (평문 데이터 인라인, READONLY=false)
+PUBLIC_TEMPLATE — GitHub Pages 공개 페이지 (잠금 화면 + 비번 → 복호화 → 동일 렌더, READONLY=true)
+
+두 템플릿이 같은 RENDER_JS 모듈을 공유한다. READONLY 플래그로 편집 핸들러를 켜고 끔.
+"""
+
+# ─────────────────────────────────────────────────────────
+# 공통 CSS
+# ─────────────────────────────────────────────────────────
+COMMON_CSS = r"""
 :root {
   --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --panel3:#334155;
   --border:#334155; --border2:#475569;
@@ -251,49 +255,13 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .del-btn { background:transparent; color:var(--bad); border:none; cursor:pointer;
             font-size:14px; padding:4px 8px; }
 .del-btn:hover { color:var(--text); }
+"""
 
-#lock { position:fixed; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:var(--bg); z-index:100; }
-#lock h1 { font-size:24px; margin:0 0 6px; }
-#lock .sub { color:var(--muted); margin-bottom:24px; font-size:14px; }
-#lock form { display:flex; gap:8px; }
-#lock input { background:var(--panel); color:var(--text);
-              border:1px solid var(--border); border-radius:6px;
-              padding:10px 14px; font-size:15px; min-width:240px; }
-#lock input:focus { outline:1px solid var(--accent); border-color:var(--accent); }
-#lock button { background:var(--accent); color:#0f172a; border:none;
-                padding:10px 20px; border-radius:6px; font-weight:700;
-                cursor:pointer; font-size:15px; }
-#lock .err { color:var(--bad); margin-top:14px; min-height:18px; font-size:13px; }
-#lock .hint { color:var(--muted); font-size:12px; margin-top:24px; max-width:380px; text-align:center; }
-</style>
-</head>
-<body>
 
-<div id="lock">
-  <h1>🔒 1:1 면담</h1>
-  <div class="sub">비밀번호를 입력하세요</div>
-  <form id="lockForm" onsubmit="return false;">
-    <input type="password" id="pw" autocomplete="current-password" placeholder="비밀번호" autofocus>
-    <button id="unlockBtn">열기</button>
-  </form>
-  <div class="err" id="lockErr"></div>
-  <div class="hint">이 페이지는 부원장 1:1 면담 기록입니다.<br>환자·외부인 열람 금지.</div>
-</div>
-
-<div id="app" style="display:none;">
-  <header>
-    <h1>📋 부원장 1:1 면담 (읽기 전용)</h1>
-    <span class="meta" id="genTime"></span>
-    <span class="ro-badge">읽기 전용 · 편집은 한의원 PC에서</span>
-  </header>
-  <div class="tabs" id="tabs"></div>
-  <main id="main"></main>
-</div>
-
-<script>
-const READONLY = true;
-
+# ─────────────────────────────────────────────────────────
+# 공통 RENDER JS — PAGE/PUBLIC 둘 다 동일 사용. READONLY로 분기.
+# ─────────────────────────────────────────────────────────
+RENDER_JS = r"""
 // ───── 전역 ─────
 let VICE_DOCTORS, DOC_COLORS, METRICS, STATE;
 let activeDoc = null;
@@ -1230,7 +1198,103 @@ function renderHistory(doc) {
         }).join("")}
   `;
 }
+"""
 
+
+# ─────────────────────────────────────────────────────────
+# PAGE_TEMPLATE — 한의원 PC 전용 편집 화면
+# ─────────────────────────────────────────────────────────
+PAGE_TEMPLATE = r"""<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>부원장 1:1 면담 대시보드</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>__COMMON_CSS__</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 부원장 1:1 면담 대시보드</h1>
+  <span class="meta">__GEN_TIME__ 기준</span>
+  <span id="saveStatus" class="save-status">대기</span>
+</header>
+
+<div class="tabs" id="tabs"></div>
+<main id="main"></main>
+
+<script>
+const READONLY = __READONLY__;
+__RENDER_JS__
+boot({
+  metrics: __METRICS__,
+  state: __STATE__,
+  vice_doctors: __VICE_DOCTORS__,
+  doc_colors: __DOC_COLORS__,
+});
+</script>
+</body>
+</html>
+""".replace("__COMMON_CSS__", COMMON_CSS).replace("__RENDER_JS__", RENDER_JS)
+
+
+# ─────────────────────────────────────────────────────────
+# PUBLIC_TEMPLATE — 잠금 화면 + 비번 → 복호화 → 동일 렌더
+# ─────────────────────────────────────────────────────────
+LOCK_CSS = r"""
+#lock { position:fixed; inset:0; display:flex; flex-direction:column;
+        align-items:center; justify-content:center; background:var(--bg); z-index:100; }
+#lock h1 { font-size:24px; margin:0 0 6px; }
+#lock .sub { color:var(--muted); margin-bottom:24px; font-size:14px; }
+#lock form { display:flex; gap:8px; }
+#lock input { background:var(--panel); color:var(--text);
+              border:1px solid var(--border); border-radius:6px;
+              padding:10px 14px; font-size:15px; min-width:240px; }
+#lock input:focus { outline:1px solid var(--accent); border-color:var(--accent); }
+#lock button { background:var(--accent); color:#0f172a; border:none;
+                padding:10px 20px; border-radius:6px; font-weight:700;
+                cursor:pointer; font-size:15px; }
+#lock .err { color:var(--bad); margin-top:14px; min-height:18px; font-size:13px; }
+#lock .hint { color:var(--muted); font-size:12px; margin-top:24px; max-width:380px; text-align:center; }
+"""
+
+PUBLIC_TEMPLATE = r"""<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>부원장 1:1 면담</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>__COMMON_CSS____LOCK_CSS__</style>
+</head>
+<body>
+
+<div id="lock">
+  <h1>🔒 1:1 면담</h1>
+  <div class="sub">비밀번호를 입력하세요</div>
+  <form id="lockForm" onsubmit="return false;">
+    <input type="password" id="pw" autocomplete="current-password" placeholder="비밀번호" autofocus>
+    <button id="unlockBtn">열기</button>
+  </form>
+  <div class="err" id="lockErr"></div>
+  <div class="hint">이 페이지는 부원장 1:1 면담 기록입니다.<br>환자·외부인 열람 금지.</div>
+</div>
+
+<div id="app" style="display:none;">
+  <header>
+    <h1>📋 부원장 1:1 면담 (읽기 전용)</h1>
+    <span class="meta" id="genTime"></span>
+    <span class="ro-badge">읽기 전용 · 편집은 한의원 PC에서</span>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <main id="main"></main>
+</div>
+
+<script>
+const READONLY = true;
+__RENDER_JS__
 
 const ENC_URL = "1on1.enc.json";
 let ENC_BLOB = null;
@@ -1280,3 +1344,4 @@ async function unlock() {
 </script>
 </body>
 </html>
+""".replace("__COMMON_CSS__", COMMON_CSS).replace("__LOCK_CSS__", LOCK_CSS).replace("__RENDER_JS__", RENDER_JS)

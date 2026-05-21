@@ -37,15 +37,12 @@ HOST = "127.0.0.1"
 PORT = 7711
 
 
+sys.path.insert(0, str(ROOT))
+import generate_1on1  # noqa: E402  — 한 번만 import 해두고 main() 만 재호출
+
 def rebuild():
-    """generate_1on1.py 를 별도 프로세스 부담 없이 같은 인터프리터에서 실행."""
-    import importlib
-    sys.path.insert(0, str(ROOT))
-    if "generate_1on1" in sys.modules:
-        importlib.reload(sys.modules["generate_1on1"])
-    else:
-        import generate_1on1  # noqa: F401
-    sys.modules["generate_1on1"].main()
+    """main()만 다시 실행 — pandas/cryptography import 비용 없이 빠르게 빌드."""
+    generate_1on1.main()
 
 
 class Handler(BaseHTTPRequestHandler):
