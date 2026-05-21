@@ -1,5 +1,13 @@
-# 민감 데이터 제외 (DB 조회 원본 CSV)
+# 민감 데이터 제외 (DB 조회 원본 CSV, 1on1 회의록 등)
 data/
+
+# 1on1 면담 대시보드
+# - 1on1_local.html: 한의원 PC 전용 평문 편집 화면 — 절대 push 금지
+# - data/1on1.json:  평문 회의록 — data/ 가 위에서 이미 제외됨 (재확인용)
+# - 1on1.html / 1on1.enc.json: 비번으로 암호화된 공개 빌드 — push 허용
+1on1_local.html
+data/1on1.json
+
 
 # Python
 __pycache__/

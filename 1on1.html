@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>부원장 1:1 면담</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --border:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8;
+    --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;
+         background:var(--bg); color:var(--text); }
+
+  /* 잠금 화면 */
+  #lock { position:fixed; inset:0; display:flex; flex-direction:column;
+          align-items:center; justify-content:center; background:var(--bg); z-index:100; }
+  #lock h1 { font-size:24px; margin:0 0 6px; }
+  #lock .sub { color:var(--muted); margin-bottom:24px; font-size:14px; }
+  #lock form { display:flex; gap:8px; }
+  #lock input { background:var(--panel); color:var(--text);
+                border:1px solid var(--border); border-radius:6px;
+                padding:10px 14px; font-size:15px; min-width:240px; }
+  #lock input:focus { outline:1px solid var(--accent); border-color:var(--accent); }
+  #lock button { background:var(--accent); color:#0f172a; border:none;
+                  padding:10px 20px; border-radius:6px; font-weight:700;
+                  cursor:pointer; font-size:15px; }
+  #lock .err { color:var(--bad); margin-top:14px; min-height:18px; font-size:13px; }
+  #lock .hint { color:var(--muted); font-size:12px; margin-top:24px; max-width:380px; text-align:center; }
+
+  /* 본문 (잠금 해제 후) */
+  header { padding:18px 24px; border-bottom:1px solid var(--border);
+           display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  h1 { margin:0; font-size:20px; font-weight:700; }
+  .meta { color:var(--muted); font-size:13px; }
+  .ro-badge { margin-left:auto; padding:6px 12px; border-radius:6px;
+              font-size:12px; background:#1e293b; color:var(--muted); }
+  .tabs { padding:0 24px; display:flex; gap:4px; border-bottom:1px solid var(--border);
+          background:var(--bg); position:sticky; top:0; z-index:10; }
+  .tab { padding:12px 22px; cursor:pointer; border-bottom:3px solid transparent;
+         color:var(--muted); font-weight:600; font-size:15px; }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--text); border-bottom-color:var(--doc-color, var(--accent)); }
+  main { padding:24px; max-width:1400px; margin:0 auto; }
+  .doc-page { display:none; }
+  .doc-page.active { display:block; }
+  .section { background:var(--panel); border:1px solid var(--border);
+             border-radius:12px; padding:20px; margin-bottom:20px; }
+  .section h2 { margin:0 0 14px; font-size:16px; font-weight:700;
+                display:flex; align-items:center; gap:10px;
+                padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .section h2 .badge { font-size:11px; padding:2px 8px; border-radius:10px;
+                       background:var(--panel2); color:var(--muted); font-weight:500; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+              gap:12px; margin-bottom:14px; }
+  .kpi { background:var(--panel2); border-radius:8px; padding:14px;
+         border-left:3px solid var(--doc-color,var(--accent)); }
+  .kpi .label { color:var(--muted); font-size:12px; }
+  .kpi .value { font-size:24px; font-weight:700; margin-top:4px; }
+  .kpi .delta { font-size:12px; margin-top:4px; }
+  .kpi .delta.up { color:var(--good); }
+  .kpi .delta.down { color:var(--bad); }
+  .kpi .delta.flat { color:var(--muted); }
+  .chart-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+               gap:12px; margin-top:14px; }
+  .chart-box { background:var(--panel2); border-radius:8px; padding:12px; }
+  .chart-box .title { color:var(--muted); font-size:12px; margin-bottom:6px; }
+  .chart-box canvas { width:100%!important; height:140px!important; }
+
+  .proj-table { width:100%; border-collapse:collapse; font-size:14px; }
+  .proj-table th, .proj-table td { padding:8px; border-bottom:1px solid var(--border); text-align:left; }
+  .proj-table th { color:var(--muted); font-weight:500; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .pill.high { background:#7f1d1d; color:#fecaca; }
+  .pill.mid  { background:#78350f; color:#fed7aa; }
+  .pill.low  { background:#1e3a8a; color:#bfdbfe; }
+  .pill.done { background:#064e3b; color:#86efac; }
+  .pill.prog { background:#1e3a8a; color:#bfdbfe; }
+  .pill.inbox{ background:#374151; color:#d1d5db; }
+
+  .agenda-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:900px){ .agenda-grid { grid-template-columns:1fr; } }
+  .agenda-block { background:var(--panel2); border-radius:8px; padding:12px;
+                   white-space:pre-wrap; line-height:1.6; font-size:14px; min-height:80px; }
+  .agenda-label { color:var(--muted); font-size:13px; margin-bottom:6px; }
+
+  .item-list { list-style:none; padding:0; margin:0; }
+  .item-list li { padding:8px; border-bottom:1px solid var(--border);
+                   display:flex; gap:10px; font-size:14px; }
+  .item-list li:last-child { border-bottom:none; }
+
+  .meeting-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .meeting-bar select { background:var(--panel2); color:var(--text);
+                         border:1px solid var(--border); padding:6px 10px;
+                         border-radius:6px; font-size:14px; min-width:200px; }
+
+  .history details { border:1px solid var(--border); border-radius:6px;
+                       padding:8px 12px; margin-bottom:6px; background:var(--panel2); font-size:13px; }
+  .history summary { cursor:pointer; color:var(--muted); }
+  .history summary strong { color:var(--text); }
+  .history .body { margin-top:8px; white-space:pre-wrap; line-height:1.6; }
+  .history .body .heading { color:var(--accent); font-weight:600; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div id="lock">
+  <h1>🔒 1:1 면담</h1>
+  <div class="sub">비밀번호를 입력하세요</div>
+  <form id="lockForm" onsubmit="return false;">
+    <input type="password" id="pw" autocomplete="current-password" placeholder="비밀번호" autofocus>
+    <button id="unlockBtn">열기</button>
+  </form>
+  <div class="err" id="lockErr"></div>
+  <div class="hint">이 페이지는 부원장 1:1 면담 기록입니다.<br>
+    환자·외부인 열람 금지. 비밀번호는 원장만 알고 있습니다.</div>
+</div>
+
+<div id="app" style="display:none;">
+  <header>
+    <h1>📋 부원장 1:1 면담 (읽기 전용)</h1>
+    <span class="meta" id="genTime"></span>
+    <span class="ro-badge">읽기 전용 · 편집은 한의원 PC에서</span>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <main id="main"></main>
+</div>
+
+<script>
+const ENC_URL = "1on1.enc.json";
+
+const $lock = document.getElementById("lock");
+const $err  = document.getElementById("lockErr");
+const $pw   = document.getElementById("pw");
+const $app  = document.getElementById("app");
+
+document.getElementById("unlockBtn").addEventListener("click", unlock);
+$pw.addEventListener("keydown", e => { if (e.key === "Enter") unlock(); });
+
+let ENC_BLOB = null;
+
+async function fetchBlob() {
+  if (ENC_BLOB) return ENC_BLOB;
+  const res = await fetch(ENC_URL + "?_=" + Date.now(), {cache:"no-store"});
+  if (!res.ok) throw new Error(`enc 다운로드 실패: ${res.status}`);
+  ENC_BLOB = await res.json();
+  return ENC_BLOB;
+}
+
+async function deriveKey(pw, salt, iter) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw", enc.encode(pw), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name:"PBKDF2", salt, iterations:iter, hash:"SHA-256" },
+    keyMaterial,
+    { name:"AES-GCM", length:256 },
+    false, ["decrypt"]);
+}
+
+function b64(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+
+async function unlock() {
+  $err.textContent = "";
+  const pw = $pw.value;
+  if (!pw) { $err.textContent = "비밀번호를 입력하세요."; return; }
+  try {
+    const blob = await fetchBlob();
+    const salt = b64(blob.salt);
+    const iv   = b64(blob.iv);
+    const ct   = b64(blob.data);
+    const key  = await deriveKey(pw, salt, blob.iterations);
+    const ptBuf = await crypto.subtle.decrypt({name:"AES-GCM", iv}, key, ct);
+    const payload = JSON.parse(new TextDecoder().decode(ptBuf));
+    document.getElementById("genTime").textContent = blob.generated + " 생성";
+    $lock.style.display = "none";
+    $app.style.display  = "block";
+    boot(payload);
+  } catch (e) {
+    console.warn(e);
+    $err.textContent = "비밀번호가 틀렸거나 데이터를 가져오지 못했습니다.";
+    $pw.select();
+  }
+}
+
+// ───── 잠금 해제 후 본문 렌더 (편집 핸들러 제거된 읽기 전용 버전) ─────
+let VICE_DOCTORS, DOC_COLORS, METRICS, STATE;
+const charts = {};
+
+function boot(payload) {
+  VICE_DOCTORS = payload.vice_doctors;
+  DOC_COLORS   = payload.doc_colors;
+  METRICS      = payload.metrics;
+  STATE        = payload.state;
+  renderTabs();
+  renderPages();
+}
+
+const monthLabel = (mk) => mk.replace("-",".");
+const fmt = (n) => (n >= 100000) ? (Math.round(n/10000)).toLocaleString() + "만" :
+                   (n >= 10000)  ? (n/10000).toFixed(1) + "만" :
+                   n.toLocaleString();
+const fmtPct = (v) => (v == null) ? "-" : v.toFixed(1) + "%";
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
+}
+function deltaPct(cur, prev) {
+  if (prev == null || prev === 0) return { html:"전월 데이터 없음", cls:"flat" };
+  const d = (cur - prev) / prev * 100;
+  const arrow = d > 0 ? "▲" : d < 0 ? "▼" : "—";
+  const cls = Math.abs(d) < 1 ? "flat" : (d > 0 ? "up" : "down");
+  return { html: `${arrow} ${Math.abs(d).toFixed(1)}% vs 전월`, cls };
+}
+function deltaPP(cur, prev) {
+  if (prev == null) return { html:"전월 데이터 없음", cls:"flat" };
+  const d = cur - prev;
+  const arrow = d > 0 ? "▲" : d < 0 ? "▼" : "—";
+  const cls = Math.abs(d) < 0.5 ? "flat" : (d > 0 ? "up" : "down");
+  return { html: `${arrow} ${Math.abs(d).toFixed(1)}p vs 전월`, cls };
+}
+function deltaRaw(cur, prev, unit) {
+  const d = cur - prev;
+  const arrow = d > 0 ? "▲" : d < 0 ? "▼" : "—";
+  const cls = d === 0 ? "flat" : (d > 0 ? "up" : "down");
+  return { html: `${arrow} ${Math.abs(d)}${unit} vs 전월`, cls };
+}
+
+function renderTabs() {
+  const $t = document.getElementById("tabs");
+  $t.innerHTML = "";
+  VICE_DOCTORS.forEach((doc,i) => {
+    const el = document.createElement("div");
+    el.className = "tab" + (i===0?" active":"");
+    el.textContent = doc + " 원장";
+    el.style.setProperty("--doc-color", DOC_COLORS[doc] || DOC_COLORS._default);
+    el.dataset.doc = doc;
+    el.onclick = () => switchTab(doc);
+    $t.appendChild(el);
+  });
+}
+function switchTab(doc) {
+  document.querySelectorAll(".tab").forEach(el =>
+    el.classList.toggle("active", el.dataset.doc === doc));
+  document.querySelectorAll(".doc-page").forEach(el =>
+    el.classList.toggle("active", el.dataset.doc === doc));
+  renderCharts(doc);
+}
+
+function renderPages() {
+  const $m = document.getElementById("main");
+  $m.innerHTML = "";
+  VICE_DOCTORS.forEach((doc,i) => {
+    const page = document.createElement("div");
+    page.className = "doc-page" + (i===0?" active":"");
+    page.dataset.doc = doc;
+    page.style.setProperty("--doc-color", DOC_COLORS[doc] || DOC_COLORS._default);
+    page.innerHTML = renderPageHTML(doc);
+    $m.appendChild(page);
+    wireUp(doc);
+    renderCharts(doc);
+  });
+}
+
+function renderPageHTML(doc) {
+  const months = METRICS.months;
+  const rows = METRICS.by_doc[doc] || [];
+  const curIdx = rows.length - 1;
+  const cur = rows[curIdx] || null;
+  const prev = curIdx > 0 ? rows[curIdx-1] : null;
+  const notes = (STATE.notes||{})[doc] || [];
+  const projects = (STATE.projects||{})[doc] || [];
+
+  return `
+    <section class="section">
+      <h2>📊 객관 지표 <span class="badge">${months[curIdx]?monthLabel(months[curIdx]):"이번 달"}</span></h2>
+      ${cur ? renderKPIs(cur, prev) : '<div class="meta">데이터 없음</div>'}
+      <div class="chart-row">
+        <div class="chart-box"><div class="title">월별 매출 추이 (만원)</div><canvas id="ch-rev-${doc}"></canvas></div>
+        <div class="chart-box"><div class="title">월별 초진·재초진</div><canvas id="ch-first-${doc}"></canvas></div>
+        <div class="chart-box"><div class="title">월별 재진율·삼진율 (%)</div><canvas id="ch-ret-${doc}"></canvas></div>
+        <div class="chart-box"><div class="title">월별 건보추나 (건)</div><canvas id="ch-chuna-${doc}"></canvas></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>🗓️ 면담 회차 <span class="badge">${notes.length}회</span></h2>
+      <div class="meeting-bar">
+        <select id="meetSel-${doc}">
+          ${notes.map((m,i)=>`<option value="${i}">${m.date} ${m.done?"✅":"📝"}</option>`).join("")}
+        </select>
+      </div>
+      <div id="meetBody-${doc}"></div>
+    </section>
+
+    <section class="section">
+      <h2>📌 진행 프로젝트 <span class="badge">${projects.length}건</span></h2>
+      ${projects.length === 0 ? '<div class="meta">등록된 프로젝트 없음.</div>' : `
+        <table class="proj-table">
+          <thead><tr><th>프로젝트</th><th>우선순위</th><th>상태</th><th>기분</th><th>메모</th></tr></thead>
+          <tbody>
+          ${projects.map(p => `
+            <tr>
+              <td>${escapeHtml(p.name||"-")}</td>
+              <td><span class="pill ${(p.priority||"").toLowerCase()}">${escapeHtml(p.priority||"-")}</span></td>
+              <td><span class="pill ${pillCls(p.status)}">${escapeHtml(p.status||"-")}</span></td>
+              <td>${escapeHtml(p.mood||"-")}</td>
+              <td>${escapeHtml(p.memo||"")}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>`}
+    </section>
+  `;
+}
+
+function pillCls(status) {
+  if (status === "Done") return "done";
+  if (status === "In Progress") return "prog";
+  return "inbox";
+}
+
+function renderKPIs(cur, prev) {
+  const items = [
+    { label:"총 매출", value: fmt(cur.revenue.total) + "원",
+      delta: deltaPct(cur.revenue.total, prev?.revenue?.total),
+      sub: `건보 ${fmt(cur.revenue.건보)} · 자보 ${fmt(cur.revenue.자보)} · 비급 ${fmt(cur.revenue.비급여)}` },
+    { label:"재진율", value: fmtPct(cur.retention.revisit_rate),
+      delta: deltaPP(cur.retention.revisit_rate, prev?.retention?.revisit_rate),
+      sub: `삼진율 ${fmtPct(cur.retention.third_rate)}` },
+    { label:"초진 (TA+건보)", value: cur.first.초진합계 + "명",
+      delta: deltaPct(cur.first.초진합계, prev?.first?.초진합계),
+      sub: `TA ${cur.first.ta} · 건보 ${cur.first.kbo} · 재초진 ${cur.first.follow}` },
+    { label:"건보추나", value: cur.chuna.건보 + "건",
+      delta: deltaPct(cur.chuna.건보, prev?.chuna?.건보),
+      sub: `TA추나 ${cur.chuna.TA}건` },
+    { label:"출근일", value: cur.work_days + "일",
+      delta: prev ? deltaRaw(cur.work_days, prev.work_days, "일") : {html:"-", cls:"flat"},
+      sub: `진료 합계 ${cur.first.전체}회` },
+  ];
+  return `<div class="kpi-grid">` + items.map(it => `
+    <div class="kpi">
+      <div class="label">${it.label}</div>
+      <div class="value">${it.value}</div>
+      <div class="delta ${it.delta.cls}">${it.delta.html}</div>
+      <div class="meta" style="font-size:11px; margin-top:4px;">${it.sub}</div>
+    </div>`).join("") + `</div>`;
+}
+
+function wireUp(doc) {
+  const notes = (STATE.notes||{})[doc] || [];
+  const sel = document.getElementById(`meetSel-${doc}`);
+  if (!sel) return;
+  if (notes.length === 0) {
+    document.getElementById(`meetBody-${doc}`).innerHTML =
+      '<div class="meta">아직 면담 기록 없음.</div>';
+    return;
+  }
+  const showMeeting = (idx) => {
+    const m = notes[idx];
+    const supList = (m.support||[]).map(s =>
+      `<li>${s.reviewed?"✅":"⬜"} <strong style="color:var(--muted); margin:0 8px;">${escapeHtml(s.type||"")}</strong> ${escapeHtml(s.need||"")}</li>`
+    ).join("");
+    const past = notes.slice(0, idx).reverse();
+    const historyHtml = past.length === 0 ? "" : `
+      <div class="history" style="margin-top:18px;">
+        <div class="agenda-label">과거 면담 (최신순)</div>
+        ${past.map(n => `
+          <details>
+            <summary><strong>${n.date}</strong> ${n.done?"✅":"📝"}
+              &nbsp;<span class="meta">(work ${(n.work||"").length}자 · career ${(n.career||"").length}자 · support ${(n.support||[]).length}건)</span>
+            </summary>
+            <div class="body">
+              <span class="heading">💼 Work</span>
+${escapeHtml(n.work||"(없음)")}
+<span class="heading">🌱 Career</span>
+${escapeHtml(n.career||"(없음)")}
+<span class="heading">🤝 Support</span>
+${(n.support||[]).map(s=>`&nbsp;&nbsp;[${s.reviewed?"✅":"⬜"} ${s.type}] ${escapeHtml(s.need||"")}`).join("\n") || "(없음)"}
+            </div>
+          </details>`).join("")}
+      </div>`;
+    document.getElementById(`meetBody-${doc}`).innerHTML = `
+      <div style="font-size:13px; color:var(--muted); margin-bottom:14px;">
+        ${m.date} · ${m.done ? "<span style='color:var(--good)'>완료</span>" : "<span style='color:var(--warn)'>예정</span>"}
+      </div>
+      <div class="agenda-grid">
+        <div><div class="agenda-label">💼 Work Session</div>
+          <div class="agenda-block">${escapeHtml(m.work||"(작성 안 됨)")}</div></div>
+        <div><div class="agenda-label">🌱 Career Session</div>
+          <div class="agenda-block">${escapeHtml(m.career||"(작성 안 됨)")}</div></div>
+      </div>
+      <div style="margin-top:14px;">
+        <div class="agenda-label">🤝 Support 필요</div>
+        ${supList ? `<ul class="item-list">${supList}</ul>` : '<div class="meta">없음</div>'}
+      </div>
+      ${historyHtml}
+    `;
+  };
+  sel.value = notes.length - 1;
+  showMeeting(notes.length - 1);
+  sel.addEventListener("change", e => showMeeting(parseInt(e.target.value)));
+}
+
+function destroyIf(key) { if (charts[key]) { charts[key].destroy(); delete charts[key]; } }
+
+function renderCharts(doc) {
+  const rows = METRICS.by_doc[doc] || [];
+  const labels = rows.map(r => monthLabel(r.month));
+  const color = DOC_COLORS[doc] || DOC_COLORS._default;
+  const baseOpts = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:"#cbd5e1", font:{size:11} } } },
+    scales:{
+      x:{ ticks:{ color:"#94a3b8", font:{size:10} }, grid:{color:"#1e293b"} },
+      y:{ ticks:{ color:"#94a3b8", font:{size:10} }, grid:{color:"#1e293b"}, beginAtZero:true },
+    },
+  };
+  destroyIf(`rev-${doc}`);
+  charts[`rev-${doc}`] = new Chart(document.getElementById(`ch-rev-${doc}`), {
+    type:"bar",
+    data:{ labels, datasets:[
+      { label:"건보", data: rows.map(r=>Math.round(r.revenue.건보/10000)), backgroundColor: color+"99" },
+      { label:"자보", data: rows.map(r=>Math.round(r.revenue.자보/10000)), backgroundColor: color+"66" },
+      { label:"비급여", data: rows.map(r=>Math.round(r.revenue.비급여/10000)), backgroundColor: color+"33" },
+    ]},
+    options:{ ...baseOpts, scales:{ ...baseOpts.scales,
+      x:{...baseOpts.scales.x, stacked:true}, y:{...baseOpts.scales.y, stacked:true} } },
+  });
+  destroyIf(`first-${doc}`);
+  charts[`first-${doc}`] = new Chart(document.getElementById(`ch-first-${doc}`), {
+    type:"bar",
+    data:{ labels, datasets:[
+      { label:"TA초진", data: rows.map(r=>r.first.ta), backgroundColor: color },
+      { label:"건보초진", data: rows.map(r=>r.first.kbo), backgroundColor: color+"99" },
+      { label:"재초진", data: rows.map(r=>r.first.follow), backgroundColor: color+"55" },
+    ]}, options: baseOpts,
+  });
+  destroyIf(`ret-${doc}`);
+  charts[`ret-${doc}`] = new Chart(document.getElementById(`ch-ret-${doc}`), {
+    type:"line",
+    data:{ labels, datasets:[
+      { label:"재진율", data: rows.map(r=>r.retention.revisit_rate), borderColor:color, backgroundColor:color+"33", tension:.3, fill:false },
+      { label:"삼진율", data: rows.map(r=>r.retention.third_rate), borderColor:"#94a3b8", borderDash:[4,4], tension:.3, fill:false },
+    ]}, options:{ ...baseOpts, scales:{ ...baseOpts.scales, y:{...baseOpts.scales.y, max:100} } },
+  });
+  destroyIf(`chuna-${doc}`);
+  charts[`chuna-${doc}`] = new Chart(document.getElementById(`ch-chuna-${doc}`), {
+    type:"bar",
+    data:{ labels, datasets:[
+      { label:"건보추나", data: rows.map(r=>r.chuna.건보), backgroundColor: color },
+      { label:"TA추나",   data: rows.map(r=>r.chuna.TA),   backgroundColor: color+"55" },
+    ]}, options: baseOpts,
+  });
+}
+</script>
+</body>
+</html>

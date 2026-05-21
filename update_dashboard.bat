@@ -9,9 +9,12 @@ python read_okchart.py >> update_log.txt 2>&1
 python read_retention.py >> update_log.txt 2>&1
 python read_retro_from_notion.py >> update_log.txt 2>&1
 python generate_dashboard.py >> update_log.txt 2>&1
+python generate_1on1.py >> update_log.txt 2>&1
 
-REM ── 자동 commit + push (변경된 index.html이 있을 때만) ──
+REM ── 자동 commit + push (index.html / 1on1 공개 빌드) ──
 git add index.html >> update_log.txt 2>&1
+if exist 1on1.html     git add 1on1.html     >> update_log.txt 2>&1
+if exist 1on1.enc.json git add 1on1.enc.json >> update_log.txt 2>&1
 git diff --staged --quiet
 if errorlevel 1 (
     git commit -m "Auto-update %date% %time%" >> update_log.txt 2>&1
