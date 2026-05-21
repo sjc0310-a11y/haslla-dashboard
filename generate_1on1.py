@@ -66,6 +66,12 @@ from pathlib import Path
 
 import pandas as pd
 
+# pythonw.exe 실행 시 stdout/stderr None — print 시 죽음 방지
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
 # Windows 한글 콘솔(cp949) 대응
 if hasattr(sys.stdout, "reconfigure"):
     try:
