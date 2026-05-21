@@ -340,8 +340,13 @@ function newSupport(projectId) {
 }
 
 // ───── 자동 저장 (편집 모드만) ─────
+//   성공: /save POST 로 한의원 PC 의 data/1on1.json 에 저장
+//   실패: 자동 다운로드 대신 LocalStorage 에 백업 + 상태바 경고
+//         (사용자가 원하면 수동 "다운로드" 버튼으로 받음 — 매 입력마다 다운로드되는 일 없음)
+const LS_KEY = "haslla_1on1_backup";
 let saveTimer = null;
 let saveDirty = false;
+let offlineMode = false;
 function markDirty() {
   if (READONLY) return;
   saveDirty = true;
@@ -353,6 +358,7 @@ function markDirty() {
 async function doSave() {
   if (READONLY) return;
   const $s = document.getElementById("saveStatus");
+  const $btn = document.getElementById("manualDlBtn");
   try {
     const res = await fetch("/save", {
       method:"POST", headers:{"Content-Type":"application/json"},
@@ -360,20 +366,47 @@ async function doSave() {
     });
     if (!res.ok) throw new Error(res.status);
     saveDirty = false;
+    offlineMode = false;
+    try { localStorage.removeItem(LS_KEY); } catch(e) {}
+    if ($btn) $btn.style.display = "none";
     const t = new Date();
     if ($s) {
       $s.textContent = `저장됨 ${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}:${String(t.getSeconds()).padStart(2,"0")}`;
       $s.className = "save-status ok";
     }
   } catch(e) {
+    offlineMode = true;
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ state: STATE, ts: Date.now() })); } catch(_) {}
     if ($s) {
-      $s.textContent = "저장 실패 — JSON 다운로드로 대체";
+      $s.textContent = "⚠ 오프라인 — 브라우저에 백업됨";
       $s.className = "save-status err";
     }
-    const blob = new Blob([JSON.stringify(STATE, null, 2)], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "1on1.json"; a.click();
+    if ($btn) $btn.style.display = "inline-block";
   }
+}
+function manualDownload() {
+  const blob = new Blob([JSON.stringify(STATE, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `1on1_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+// 페이지 로드 직후 LocalStorage 백업 있으면 알림
+function checkLocalBackup() {
+  if (READONLY) return;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const b = JSON.parse(raw);
+    const ago = Math.round((Date.now() - b.ts) / 60000);
+    if (confirm(`브라우저에 저장 실패한 백업이 있습니다 (${ago}분 전).\n이 백업으로 화면을 복구할까요? (취소하면 현재 서버 데이터 사용)`)) {
+      STATE = b.state;
+      renderPages();
+      markDirty();   // 즉시 다시 저장 시도
+    } else {
+      localStorage.removeItem(LS_KEY);
+    }
+  } catch(e) {}
 }
 window.addEventListener("beforeunload", (e) => {
   if (!READONLY && saveDirty) { e.preventDefault(); e.returnValue = ""; }
@@ -393,6 +426,11 @@ function boot(payload) {
   renderTabs();
   renderPages();
   setupModal();
+  if (!READONLY) {
+    const $btn = document.getElementById("manualDlBtn");
+    if ($btn) $btn.addEventListener("click", manualDownload);
+    checkLocalBackup();
+  }
 }
 function migrateNote(n) {
   if (!n.id) n.id = genId("m");
@@ -703,7 +741,8 @@ function renderTopicPicker(doc, m) {
   return sorted.map(p => {
     const sel = m.topic_projects.includes(p.id);
     const cls = "chip" + (sel?" active":"") + (p.status==="Done"?" done":"");
-    return `<button class="${cls}" data-pid="${p.id}">${escapeHtml(p.name||"(이름 없음)")}</button>`;
+    const extra = READONLY ? ' style="cursor:default;" disabled' : '';
+    return `<button class="${cls}" data-pid="${p.id}"${extra}>${escapeHtml(p.name||"(이름 없음)")}</button>`;
   }).join("");
 }
 
@@ -794,6 +833,7 @@ function renderGeneralSupports(doc, m) {
 }
 
 function wireTopicPicker(doc) {
+  if (READONLY) return;   // 읽기 전용 모드에서는 chip 클릭 비활성
   const $p = document.getElementById(`topicPicker-${doc}`);
   $p.querySelectorAll(".chip").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -1219,6 +1259,7 @@ PAGE_TEMPLATE = r"""<!doctype html>
   <h1>📋 부원장 1:1 면담 대시보드</h1>
   <span class="meta">__GEN_TIME__ 기준</span>
   <span id="saveStatus" class="save-status">대기</span>
+  <button id="manualDlBtn" class="add-btn" style="display:none; margin:0;">⬇ 백업 다운로드</button>
 </header>
 
 <div class="tabs" id="tabs"></div>
