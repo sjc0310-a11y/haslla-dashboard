@@ -8,6 +8,7 @@ python read_chuna.py >> update_log.txt 2>&1
 python read_okchart.py >> update_log.txt 2>&1
 python read_retention.py >> update_log.txt 2>&1
 python read_retro_from_notion.py >> update_log.txt 2>&1
+python read_1on1_from_notion.py >> update_log.txt 2>&1
 python generate_dashboard.py >> update_log.txt 2>&1
 python generate_1on1.py >> update_log.txt 2>&1
 
