@@ -31,7 +31,7 @@ SEP = "'!@#%'"
 # ACTIVE_DOCTORS: 개인 뷰 선택 화면에 표시할 진료 중인 모든 원장 (매출 진료만 하는 원장 포함)
 # EXCLUDE_FROM_STATS: 통계 집계에서 빼는 사람 (선주천=대표원장 진료 없음, 퇴사 원장 등)
 # DOC_COLORS: 색상 매핑. 퇴사한 원장도 과거 트렌드 차트용으로 유지하는 게 안전.
-DOCTORS         = ["노왕식", "이문환", "방민준"]
+DOCTORS         = ["노왕식", "이문환", "방민준", "김한중"]
 ACTIVE_DOCTORS  = ["노왕식", "이문환", "방민준", "김한중"]
 EXCLUDE_FROM_STATS = ["선주천", "배용빈"]
 
@@ -350,7 +350,7 @@ def build_html(data):
     d = data
     now_str = datetime.now().strftime("%Y년 %m월 %d일 %H:%M 기준")
 
-    colors = {"노왕식":"#3b82f6","이문환":"#10b981","방민준":"#f59e0b"}
+    colors = {"노왕식":"#3b82f6","이문환":"#10b981","방민준":"#f59e0b","김한중":"#38bdf8"}
 
     # ── 추나 월별 테이블 ──────────────────────────────────
     cm        = d["chuna_monthly"]

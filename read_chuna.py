@@ -32,7 +32,7 @@ SHEET_ID  = "1QTOX85QDWBKERfaVIXs071C63XMGaW9n9-rUcDBBDRY"
 XLSX_URL  = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=xlsx"
 XLSX_PATH = Path(r"C:\Users\하슬라한의원\한의원지표\data\추나시트.xlsx")
 CSV_PATH  = Path(r"C:\Users\하슬라한의원\한의원지표\data\추나현황.csv")
-DOCTORS   = ["노왕식", "이문환", "방민준"]
+DOCTORS   = ["노왕식", "이문환", "방민준", "김한중"]
 
 
 def download_xlsx():
