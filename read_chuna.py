@@ -130,11 +130,17 @@ def main():
 
     sheet_data = {}
     for doc in DOCTORS:
-        if doc not in wb.sheetnames:
-            print(f"[경고] '{doc}' 시트 없음")
+        # 시트 이름이 "이름" 또는 "이름(퇴사)" 둘 다 허용
+        sheet_name = None
+        if doc in wb.sheetnames:
+            sheet_name = doc
+        elif f"{doc}(퇴사)" in wb.sheetnames:
+            sheet_name = f"{doc}(퇴사)"
+        if not sheet_name:
+            print(f"[경고] '{doc}' 시트 없음 (퇴사 변형도 없음)")
             continue
 
-        records = parse_sheet(wb[doc])
+        records = parse_sheet(wb[sheet_name])
 
         # 이문환: 4/27 이전 제거
         if doc == "이문환":
