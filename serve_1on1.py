@@ -663,21 +663,23 @@ class Handler(BaseHTTPRequestHandler):
             # 로그인 페이지로 안내 (redirect 보다 직접 표시가 UX 좋음)
             self._serve_login()
             return
-        if self.path in ("/", "/1on1.html", "/index"):
+        # 쿼리 부분(?doctor=...) 제거 후 경로만 매칭
+        path_only = self.path.split("?", 1)[0]
+        if path_only in ("/", "/1on1.html", "/index"):
             try:
                 rebuild()
             except Exception as e:
                 self._serve_error(500, f"rebuild 실패: {e}")
                 return
             self._serve_file(OUT_HTML, "text/html; charset=utf-8")
-        elif self.path == "/raw.json":
+        elif path_only == "/raw.json":
             if DATA_JSON.exists():
                 self._serve_file(DATA_JSON, "application/json; charset=utf-8")
             else:
                 self._serve_bytes(b"{}", "application/json; charset=utf-8")
-        elif self.path == "/home" or self.path.startswith("/home?"):
+        elif path_only == "/home":
             self._serve_bytes(HOME_HTML.encode("utf-8"), "text/html; charset=utf-8")
-        elif self.path == "/retro" or self.path.startswith("/retro?"):
+        elif path_only == "/retro":
             # GitHub Pages index.html iframe 임베드 허용
             self._serve_bytes(
                 RETRO_HTML.encode("utf-8"),
@@ -687,7 +689,7 @@ class Handler(BaseHTTPRequestHandler):
                      "frame-ancestors 'self' https://sjc0310-a11y.github.io https://*.github.io"),
                 ],
             )
-        elif self.path == "/retro/data":
+        elif path_only == "/retro/data":
             if RETRO_JSON.exists():
                 self._serve_file(RETRO_JSON, "application/json; charset=utf-8")
             else:
