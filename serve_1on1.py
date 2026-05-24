@@ -86,7 +86,7 @@ RETRO_HTML = """<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>📝 주간 회고 작성</title>
+<title>📚 주간 회고 일람</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <style>
@@ -153,10 +153,10 @@ RETRO_HTML = """<!doctype html>
 </head>
 <body>
 <header id="pageHeader">
-  <h1>📝 주간 회고 작성</h1>
+  <h1>📚 주간 회고 일람</h1>
   <a class="nav-link" href="/">← 1on1 면담으로</a>
-  <span id="saveStatus" class="save-status">대기</span>
-  <button id="manualDlBtn" style="display:none;">⬇ 백업 다운로드</button>
+  <a class="nav-link" href="https://sjc0310-a11y.github.io/haslla-dashboard/" target="_blank">경영 대시보드 →</a>
+  <span class="meta" style="margin-left:auto; font-size:12px;">작성·수정은 경영 대시보드 회고 박스 직접 클릭</span>
 </header>
 <script>
   // iframe 임베드 모드 — ?embedded=1 이면 header 숨기고 컴팩트하게
@@ -165,189 +165,178 @@ RETRO_HTML = """<!doctype html>
     document.body.style.background = "transparent";
   }
 </script>
+<style>
+  /* 일람 추가 스타일 */
+  .toolbar { background:var(--panel); border:1px solid var(--border);
+              border-radius:12px; padding:14px 16px; margin-bottom:18px;
+              display:flex; flex-wrap:wrap; gap:14px; align-items:center; }
+  .doc-chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { background:var(--panel2); color:var(--muted); border:1px solid var(--border);
+          padding:6px 14px; border-radius:18px; font-size:13px; cursor:pointer;
+          font-weight:500; transition:all .15s; }
+  .chip:hover { color:var(--text); border-color:var(--accent); }
+  .chip.active { background:var(--accent); color:#0f172a; border-color:var(--accent); font-weight:700; }
+  .chip .count { font-size:11px; margin-left:4px; opacity:.7; }
+  .search-input { background:var(--panel2); color:var(--text);
+                   border:1px solid var(--border); padding:7px 12px;
+                   border-radius:6px; font-size:14px; min-width:240px; flex:1; }
+  .search-input:focus { outline:1px solid var(--accent); border-color:var(--accent); }
+  .stats { font-size:12px; color:var(--muted); margin-left:auto; }
+  .stats strong { color:var(--text); }
+
+  .card-grid { display:grid; grid-template-columns:1fr; gap:14px; }
+  @media (min-width:1100px) { .card-grid { grid-template-columns:1fr 1fr; } }
+  .retro-card { background:var(--panel); border:1px solid var(--border);
+                 border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
+  .retro-card:hover { border-color:var(--border2); }
+  .card-header { display:flex; align-items:center; gap:10px;
+                  padding-bottom:8px; border-bottom:1px solid var(--border);
+                  font-size:13px; }
+  .card-header .date { font-weight:700; color:var(--text); }
+  .card-header .doctor { padding:2px 10px; border-radius:10px;
+                          background:var(--panel2); color:var(--accent); font-weight:600; }
+  .card-header .meta { color:var(--muted); margin-left:auto; font-size:11px; }
+  .card-section { font-size:13px; line-height:1.6; }
+  .card-section .head { font-size:11px; color:var(--muted); font-weight:600;
+                          margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
+  .card-section.good .head { color:#86efac; }
+  .card-section.bad  .head { color:#fca5a5; }
+  .card-section.plan .head { color:#bfdbfe; }
+  .card-section p { white-space:pre-wrap; margin:0; }
+  .card-section .empty { color:var(--muted); font-style:italic; font-size:12px; }
+  mark { background:#facc15; color:#0f172a; padding:0 2px; border-radius:2px; }
+  .empty-state { text-align:center; padding:60px 20px; color:var(--muted);
+                  font-size:14px; background:var(--panel); border:1px dashed var(--border);
+                  border-radius:12px; }
+</style>
 <main>
-  <div class="controls">
-    <label>주차 (월요일)
-      <input type="date" id="weekInput">
-    </label>
-    <label>원장
-      <select id="doctorSel"></select>
-    </label>
-    <span class="hint">한 원장 한 주에 1건. 같은 조합 다시 선택하면 그 회고가 열림.</span>
-  </div>
-  <div class="form">
-    <div class="field good">
-      <div class="field-label">잘한 점 <span class="badge">good</span></div>
-      <textarea id="good" placeholder="• 이번 주 가장 잘 한 진료·운영·환자 케이스
-• 본인이 자랑하고 싶은 시도"></textarea>
-    </div>
-    <div class="field bad">
-      <div class="field-label">아쉬웠던 점 <span class="badge">bad</span></div>
-      <textarea id="bad" placeholder="• 이번 주 아쉬웠던 점·놓친 부분
-• 다시 한다면 다르게 했을 일"></textarea>
-    </div>
-    <div class="field plan">
-      <div class="field-label">다음 주 실행 계획 <span class="badge">plan</span></div>
-      <textarea id="plan" placeholder="• 다음 주 구체적 액션 1~3개
-• 측정 가능한 목표 형태로"></textarea>
-    </div>
+  <div class="toolbar">
+    <div class="doc-chips" id="docChips"></div>
+    <input type="text" class="search-input" id="searchInput" placeholder="🔍 잘한 점·아쉬웠던 점·계획 본문 검색...">
+    <div class="stats" id="statsBar">로딩 중…</div>
   </div>
 
-  <div class="past">
-    <h2>📚 과거 회고 (선택된 원장 · 최신순)</h2>
-    <div id="pastList"></div>
-  </div>
+  <div id="cardGrid" class="card-grid"></div>
 </main>
 
 <script>
 const DOCTORS = __RETRO_DOCTORS_JSON__;
-const LS_KEY = "haslla_retro_backup";
-let ALL = [];     // 전체 retro 배열
-let DIRTY = false;
-let SAVE_TIMER = null;
+let ALL = [];               // 전체 retro 배열
+let activeDoctor = "전체";  // chip 필터
+let searchQ = "";
 
-const $week   = document.getElementById("weekInput");
-const $doc    = document.getElementById("doctorSel");
-const $good   = document.getElementById("good");
-const $bad    = document.getElementById("bad");
-const $plan   = document.getElementById("plan");
-const $status = document.getElementById("saveStatus");
-const $past   = document.getElementById("pastList");
-const $dlBtn  = document.getElementById("manualDlBtn");
+const $chips  = document.getElementById("docChips");
+const $search = document.getElementById("searchInput");
+const $stats  = document.getElementById("statsBar");
+const $grid   = document.getElementById("cardGrid");
 
-// 원장 셀렉터 채우기
-DOCTORS.forEach(d => {
-  const opt = document.createElement("option");
-  opt.value = d; opt.textContent = d;
-  $doc.appendChild(opt);
-});
-
-// 이번 주 월요일을 default 로
-function thisMonday() {
-  const t = new Date();
-  const day = t.getDay() || 7;  // Sun=0 → 7
-  t.setDate(t.getDate() - (day - 1));
-  return t.toISOString().slice(0, 10);
-}
-$week.value = thisMonday();
-
-function key(week, doc) { return `${week}__${doc}`; }
-function findEntry(week, doc) { return ALL.find(r => r.week_label === week && r.doctor === doc); }
-
-function loadCurrent() {
-  const e = findEntry($week.value, $doc.value);
-  $good.value = e?.good || "";
-  $bad.value  = e?.bad  || "";
-  $plan.value = e?.plan || "";
-  renderPast();
-}
-
-function renderPast() {
-  const list = ALL.filter(r => r.doctor === $doc.value)
-                  .sort((a, b) => (b.week_label || "").localeCompare(a.week_label || ""));
-  if (list.length === 0) {
-    $past.innerHTML = '<div class="meta">아직 회고 없음.</div>';
-    return;
-  }
-  $past.innerHTML = list.map(r => `
-    <details ${r.week_label === $week.value ? "open" : ""}>
-      <summary><strong>${r.week_label}</strong> · ${r.doctor}
-        <span class="meta">(good ${(r.good||"").length}자 · bad ${(r.bad||"").length}자 · plan ${(r.plan||"").length}자)</span>
-      </summary>
-      <div class="body">
-        <span class="heading">잘한 점</span><p>${esc(r.good || "(없음)")}</p>
-        <span class="heading">아쉬웠던 점</span><p>${esc(r.bad || "(없음)")}</p>
-        <span class="heading">다음 주 실행 계획</span><p>${esc(r.plan || "(없음)")}</p>
-      </div>
-    </details>
-  `).join("");
-}
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c =>
     ({"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"})[c]);
 }
-
-function markDirty() {
-  DIRTY = true;
-  $status.textContent = "저장 중…";
-  $status.className = "save-status dirty";
-  clearTimeout(SAVE_TIMER);
-  SAVE_TIMER = setTimeout(doSave, 600);
+function highlight(s, q) {
+  if (!q) return esc(s);
+  const re = new RegExp("(" + q.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&") + ")", "gi");
+  return esc(s).replace(re, "<mark>$1</mark>");
 }
 
-async function doSave() {
-  // 현재 입력값으로 ALL 갱신
-  const w = $week.value, d = $doc.value;
-  if (!w || !d) return;
-  let e = findEntry(w, d);
-  if (!e) {
-    e = { week_label: w, doctor: d, good: "", bad: "", plan: "", page_url: "" };
-    ALL.push(e);
-  }
-  e.good = $good.value;
-  e.bad  = $bad.value;
-  e.plan = $plan.value;
-  // 빈 entry 는 정리
-  ALL = ALL.filter(r => (r.good || r.bad || r.plan));
-  // POST
-  try {
-    const res = await fetch("/retro/save", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(ALL),
+function renderChips() {
+  const labels = ["전체"].concat(DOCTORS);
+  $chips.innerHTML = labels.map(name => {
+    const n = name === "전체" ? ALL.length : ALL.filter(r => r.doctor === name).length;
+    return `<button class="chip${name===activeDoctor?" active":""}" data-doc="${esc(name)}">${esc(name)}<span class="count">(${n})</span></button>`;
+  }).join("");
+  $chips.querySelectorAll(".chip").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeDoctor = btn.dataset.doc;
+      renderChips(); renderCards();
     });
-    if (!res.ok) throw new Error(res.status);
-    DIRTY = false;
-    try { localStorage.removeItem(LS_KEY); } catch(_) {}
-    $dlBtn.style.display = "none";
-    const t = new Date();
-    $status.textContent = `저장됨 ${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}:${String(t.getSeconds()).padStart(2,"0")}`;
-    $status.className = "save-status ok";
-    renderPast();
-  } catch(err) {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({state: ALL, ts: Date.now()})); } catch(_) {}
-    $status.textContent = "⚠ 오프라인 — 브라우저에 백업됨";
-    $status.className = "save-status err";
-    $dlBtn.style.display = "inline-block";
+  });
+}
+
+function renderStats() {
+  const docCount = DOCTORS.length;
+  const total = ALL.length;
+  // 최근 4주 작성률 — DOCTORS × 4주 = 기대값
+  const last4 = lastNMondays(4);
+  const expected = docCount * 4;
+  const got = ALL.filter(r => last4.includes(r.week_label)).length;
+  const pct = expected ? Math.round((got / expected) * 100) : 0;
+  $stats.innerHTML = `전체 <strong>${total}</strong>건 · 최근 4주 작성률 <strong>${got}/${expected} (${pct}%)</strong>`;
+}
+
+function lastNMondays(n) {
+  const out = [];
+  const t = new Date();
+  const day = t.getDay() || 7;
+  t.setDate(t.getDate() - (day - 1));   // 이번 주 월요일
+  for (let i=0; i<n; i++) {
+    out.push(t.toISOString().slice(0,10));
+    t.setDate(t.getDate() - 7);
   }
+  return out;
 }
 
-function manualDownload() {
-  const blob = new Blob([JSON.stringify(ALL, null, 2)], {type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `retro_backup_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
+function renderCards() {
+  let list = ALL.slice();
+  if (activeDoctor !== "전체") list = list.filter(r => r.doctor === activeDoctor);
+  const q = searchQ.trim().toLowerCase();
+  if (q) {
+    list = list.filter(r =>
+      (r.good||"").toLowerCase().includes(q) ||
+      (r.bad ||"").toLowerCase().includes(q) ||
+      (r.plan||"").toLowerCase().includes(q) ||
+      (r.doctor||"").toLowerCase().includes(q));
+  }
+  list.sort((a,b) => (b.week_label||"").localeCompare(a.week_label||""));
+
+  if (list.length === 0) {
+    $grid.innerHTML = `<div class="empty-state">해당 조건의 회고가 없습니다.<br><span style="font-size:12px;">대시보드의 회고 영역에서 박스 클릭으로 직접 작성하세요.</span></div>`;
+    return;
+  }
+  $grid.innerHTML = list.map(r => {
+    const dateLabel = formatDate(r.week_label);
+    return `
+      <div class="retro-card">
+        <div class="card-header">
+          <span class="date">${esc(dateLabel)}</span>
+          <span class="doctor">${esc(r.doctor||"-")}</span>
+          <span class="meta">good ${(r.good||"").length}자 · bad ${(r.bad||"").length}자 · plan ${(r.plan||"").length}자</span>
+        </div>
+        <div class="card-section good">
+          <div class="head">✅ 잘한 점</div>
+          ${r.good ? `<p>${highlight(r.good, q)}</p>` : `<span class="empty">(비어있음)</span>`}
+        </div>
+        <div class="card-section bad">
+          <div class="head">🔶 아쉬웠던 점</div>
+          ${r.bad ? `<p>${highlight(r.bad, q)}</p>` : `<span class="empty">(비어있음)</span>`}
+        </div>
+        <div class="card-section plan">
+          <div class="head">📌 다음 주 실행 계획</div>
+          ${r.plan ? `<p>${highlight(r.plan, q)}</p>` : `<span class="empty">(비어있음)</span>`}
+        </div>
+      </div>`;
+  }).join("");
 }
 
-window.addEventListener("beforeunload", e => {
-  if (DIRTY) { e.preventDefault(); e.returnValue = ""; }
-});
+function formatDate(weekLabel) {
+  // weekLabel = "YYYY-MM-DD" (월요일)
+  if (!weekLabel) return "(날짜 없음)";
+  const d = new Date(weekLabel);
+  if (isNaN(d)) return weekLabel;
+  const end = new Date(d); end.setDate(end.getDate() + 6);
+  const mm = d.getMonth()+1, dd = d.getDate(), em = end.getMonth()+1, ed = end.getDate();
+  return `${d.getFullYear()}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")} ~ ${String(em).padStart(2,"0")}-${String(ed).padStart(2,"0")}`;
+}
 
-[$week, $doc].forEach(el => el.addEventListener("change", loadCurrent));
-[$good, $bad, $plan].forEach(el => el.addEventListener("input", markDirty));
-$dlBtn.addEventListener("click", manualDownload);
+$search.addEventListener("input", e => { searchQ = e.target.value; renderCards(); });
 
 (async () => {
   try {
     const r = await fetch("/retro/data", {cache:"no-store"});
     ALL = r.ok ? await r.json() : [];
   } catch(e) { ALL = []; }
-  // LocalStorage 백업 우선 적용
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const b = JSON.parse(raw);
-      const ago = Math.round((Date.now() - b.ts) / 60000);
-      if (confirm(`브라우저에 저장 실패한 회고 백업이 있습니다 (${ago}분 전).\\n복구할까요?`)) {
-        ALL = b.state || ALL;
-        markDirty();
-      } else {
-        localStorage.removeItem(LS_KEY);
-      }
-    }
-  } catch(_) {}
-  loadCurrent();
+  renderChips(); renderStats(); renderCards();
 })();
 </script>
 </body>
