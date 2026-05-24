@@ -789,23 +789,24 @@ def build_html(data):
     </div>
   </div>
 
-  <!-- ═══ 주간 회고 (대시보드 내 직접 편집) ══════════ -->
+  <!-- ═══ 주간 회고 (인라인 편집 — 박스 클릭 시 textarea 변환) ══════════ -->
   <div class="section-title" id="retroSectionTitle">📗 주간 회고</div>
   <div class="chart-box" id="retroBox">
     <div class="retro-tabs" id="retroTabs"></div>
     <div id="retroContent"></div>
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #334155">
-      <details>
-        <summary style="cursor:pointer;color:#3b82f6;font-size:0.85rem;font-weight:600;list-style:none;display:inline-flex;align-items:center;gap:6px">
-          ✏️ 이 자리에서 작성·수정하기
-          <span style="font-size:0.7rem;color:#94a3b8;font-weight:400">— 첫 사용 시 비밀번호 1회 입력</span>
-        </summary>
-        <iframe src="https://1on1.haslla-admin.com/retro?embedded=1"
-                style="width:100%;height:720px;border:1px solid #334155;border-radius:8px;margin-top:12px;background:#0f172a"
-                title="주간 회고 편집"
-                referrerpolicy="no-referrer-when-downgrade"></iframe>
-        <p style="font-size:0.7rem;color:#475569;margin-top:7px">편집·저장이 끝나면 페이지를 새로고침해 주세요 (자동 새 빌드는 매주 일요일 18시).</p>
-      </details>
+  </div>
+
+  <!-- 비번 입력 모달 — 저장 시도 시 401 받으면 한 번 표시 -->
+  <div id="retroPwModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9100;align-items:center;justify-content:center">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px;width:92%;max-width:380px">
+      <h3 style="margin:0 0 6px;font-size:1.05rem;color:#f1f5f9">🔒 1on1 비밀번호</h3>
+      <p style="font-size:0.78rem;color:#94a3b8;margin:0 0 16px">처음 한 번만 입력. 이후 1년간 자동 인증됩니다.</p>
+      <input type="password" id="retroPwInput" placeholder="비밀번호" style="width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:10px;font-size:14px">
+      <div id="retroPwErr" style="color:#ef4444;font-size:0.75rem;min-height:18px;margin-top:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+        <button onclick="cancelRetroPw()" style="background:transparent;color:#94a3b8;border:1px solid #334155;padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer">취소</button>
+        <button onclick="submitRetroPw()" style="background:#3b82f6;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">열기</button>
+      </div>
     </div>
   </div>
 
@@ -1259,10 +1260,13 @@ function findRetro(weekLabel, doc) {{
   return null;
 }}
 
+// ─── 회고 인라인 편집 (한의원 PC 서버로 직접 fetch) ───
+var RETRO_API = 'https://1on1.haslla-admin.com';
+
 function renderRetroBox(weekLabel) {{
   if (!retroSelectedDoc) retroSelectedDoc = myDoc || activeDoctors[0] || '노왕식';
 
-  // 탭 (현재 진료 중인 원장 기준)
+  // 탭
   var tabsHtml = '';
   for (var i=0; i<activeDoctors.length; i++) {{
     var doc = activeDoctors[i];
@@ -1275,24 +1279,165 @@ function renderRetroBox(weekLabel) {{
   }}
   document.getElementById('retroTabs').innerHTML = tabsHtml;
 
-  // 내용
-  var r = findRetro(weekLabel, retroSelectedDoc);
-  var content;
-  if (r) {{
-    var link = r.page_url
-      ? '<div style="text-align:right;margin-bottom:8px"><a href="' + r.page_url + '" target="_blank" rel="noopener" style="color:#60a5fa;font-size:0.72rem;text-decoration:none">노션에서 열기 →</a></div>'
-      : '';
-    content = link +
-      '<div class="retro-field"><label>✅ 잘한 점</label><div class="retro-text">' + (escHtml(r.good) || '<span style="color:#475569">(비어있음)</span>') + '</div></div>' +
-      '<div class="retro-field"><label>🔶 아쉬웠던 점</label><div class="retro-text">' + (escHtml(r.bad) || '<span style="color:#475569">(비어있음)</span>') + '</div></div>' +
-      '<div class="retro-field"><label>📌 다음 주 실행 계획</label><div class="retro-text">' + (escHtml(r.plan) || '<span style="color:#475569">(비어있음)</span>') + '</div></div>';
-  }} else {{
-    content = '<p style="color:#64748b;text-align:center;padding:32px 12px;font-size:0.85rem;line-height:1.65">' +
-      '이 주의 <strong style="color:#cbd5e1">' + retroSelectedDoc + ' 원장</strong> 회고가 아직 없습니다.<br>' +
-      '<span style="font-size:0.74rem;color:#475569">아래 버튼에서 노션에 추가하면 다음 동기화 때 표시됩니다.</span></p>';
-  }}
+  // 내용 — 박스 클릭 시 textarea 로 변신
+  var r = findRetro(weekLabel, retroSelectedDoc) || {{week_label:weekLabel, doctor:retroSelectedDoc, good:'', bad:'', plan:''}};
+  var statusBar =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:0.72rem;color:#64748b">' +
+      '<span>박스 클릭 → 편집, 다른 곳 클릭 → 자동 저장</span>' +
+      '<span id="retroSaveStatus"></span>' +
+    '</div>';
+  var content = statusBar +
+    fieldBox('good', '✅ 잘한 점', r.good) +
+    fieldBox('bad',  '🔶 아쉬웠던 점', r.bad) +
+    fieldBox('plan', '📌 다음 주 실행 계획', r.plan);
   document.getElementById('retroContent').innerHTML = content;
 }}
+
+function fieldBox(field, label, value) {{
+  var placeholder = '<span style="color:#475569">클릭해서 작성</span>';
+  var display = value ? escHtml(value) : placeholder;
+  return '<div class="retro-field">' +
+    '<label>' + label + '</label>' +
+    '<div class="retro-text" style="cursor:text;min-height:42px" onclick="startRetroEdit(this,\\'' + field + '\\')">' + display + '</div>' +
+    '</div>';
+}}
+
+function startRetroEdit(div, field) {{
+  if (div.querySelector('textarea')) return;  // 이미 편집 중
+  var r = findRetro(retroCurrentWeek(), retroSelectedDoc) || {{good:'',bad:'',plan:''}};
+  var current = r[field] || '';
+  var ta = document.createElement('textarea');
+  ta.value = current;
+  ta.className = 'retro-textarea';
+  ta.style.minHeight = '100px';
+  ta.style.width = '100%';
+  ta.style.background = '#0f172a';
+  ta.style.color = '#e2e8f0';
+  ta.style.border = '1px solid #3b82f6';
+  ta.style.borderRadius = '8px';
+  ta.style.padding = '10px';
+  ta.style.fontSize = '0.86rem';
+  ta.style.lineHeight = '1.65';
+  div.innerHTML = '';
+  div.appendChild(ta);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  ta.addEventListener('blur', function() {{ commitRetroEdit(div, field, ta.value); }});
+  ta.addEventListener('keydown', function(e) {{
+    if (e.key === 'Escape') {{ div.innerHTML = current ? escHtml(current) : '<span style="color:#475569">클릭해서 작성</span>'; }}
+  }});
+}}
+
+function commitRetroEdit(div, field, newValue) {{
+  var week = retroCurrentWeek();
+  var doc = retroSelectedDoc;
+  var r = findRetro(week, doc);
+  if (!r) {{
+    r = {{week_label:week, doctor:doc, good:'', bad:'', plan:'', page_url:''}};
+    retros.push(r);
+  }}
+  if (r[field] === newValue) {{
+    // 변경 없음 — 그냥 표시 복원
+    div.innerHTML = newValue ? escHtml(newValue) : '<span style="color:#475569">클릭해서 작성</span>';
+    return;
+  }}
+  r[field] = newValue;
+  div.innerHTML = newValue ? escHtml(newValue) : '<span style="color:#475569">클릭해서 작성</span>';
+  setRetroStatus('저장 중…', '#fed7aa');
+  // 빈 회고는 retro 목록에서 제거
+  var cleaned = retros.filter(function(x) {{ return (x.good||x.bad||x.plan); }});
+  postRetroSave(cleaned);
+}}
+
+function setRetroStatus(text, color) {{
+  var el = document.getElementById('retroSaveStatus');
+  if (el) {{ el.textContent = text; el.style.color = color || '#64748b'; }}
+}}
+
+function retroCurrentWeek() {{
+  return allWeeks && allWeeks[currentIdx] ? allWeeks[currentIdx].label : '';
+}}
+
+function postRetroSave(data) {{
+  fetch(RETRO_API + '/retro/save', {{
+    method: 'POST',
+    credentials: 'include',
+    headers: {{'Content-Type':'application/json'}},
+    body: JSON.stringify(data),
+  }}).then(function(res) {{
+    if (res.status === 401 || res.status === 403) {{
+      openRetroPwPrompt(function() {{ postRetroSave(data); }});
+      return;
+    }}
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    setRetroStatus('저장됨', '#86efac');
+    setTimeout(function() {{ setRetroStatus(''); }}, 2500);
+    // 탭의 ✓ 갱신
+    renderRetroBox(retroCurrentWeek());
+  }}).catch(function(e) {{
+    console.warn(e);
+    setRetroStatus('⚠ 저장 실패 — 한의원 PC 서버 확인', '#fca5a5');
+  }});
+}}
+
+// 최초 로드 시 한의원 PC 서버에서 최신 retros 시도 (실패해도 빌드 시 박힌 데이터 그대로)
+function fetchLiveRetros() {{
+  fetch(RETRO_API + '/retro/data', {{credentials:'include'}})
+    .then(function(res) {{ return res.ok ? res.json() : null; }})
+    .then(function(data) {{
+      if (Array.isArray(data) && data.length) {{
+        retros = data;
+        if (allWeeks && allWeeks.length) renderRetroBox(retroCurrentWeek());
+      }}
+    }})
+    .catch(function() {{ /* 오프라인일 때 무시 */ }});
+}}
+if (typeof window !== 'undefined') {{
+  setTimeout(fetchLiveRetros, 200);  // DOM ready 후
+}}
+
+// ── 비번 prompt ─────────────────
+var pendingRetroAction = null;
+function openRetroPwPrompt(onSuccess) {{
+  pendingRetroAction = onSuccess;
+  document.getElementById('retroPwModal').style.display = 'flex';
+  document.getElementById('retroPwInput').value = '';
+  document.getElementById('retroPwErr').textContent = '';
+  setTimeout(function() {{ document.getElementById('retroPwInput').focus(); }}, 50);
+}}
+function cancelRetroPw() {{
+  document.getElementById('retroPwModal').style.display = 'none';
+  pendingRetroAction = null;
+  setRetroStatus('취소됨', '#94a3b8');
+  setTimeout(function() {{ setRetroStatus(''); }}, 2000);
+}}
+function submitRetroPw() {{
+  var pw = document.getElementById('retroPwInput').value;
+  var err = document.getElementById('retroPwErr');
+  if (!pw) {{ err.textContent = '비밀번호를 입력하세요'; return; }}
+  err.textContent = '확인 중...';
+  fetch(RETRO_API + '/login', {{
+    method: 'POST',
+    credentials: 'include',
+    headers: {{'Content-Type':'application/json'}},
+    body: JSON.stringify({{pw: pw}}),
+  }}).then(function(res) {{ return res.json().catch(function() {{ return {{ok:false}}; }}).then(function(j) {{ return {{status:res.status, body:j}}; }}); }})
+    .then(function(out) {{
+      if (out.status === 200 && out.body && out.body.ok) {{
+        err.textContent = '';
+        document.getElementById('retroPwModal').style.display = 'none';
+        if (pendingRetroAction) {{ var fn = pendingRetroAction; pendingRetroAction = null; fn(); }}
+      }} else {{
+        err.textContent = '비밀번호가 틀렸습니다.';
+      }}
+    }}).catch(function(e) {{ err.textContent = '서버 연결 실패: ' + e.message; }});
+}}
+// Enter 로 제출
+document.addEventListener('keydown', function(e) {{
+  if (e.key === 'Enter' && document.getElementById('retroPwModal').style.display === 'flex') {{
+    submitRetroPw();
+  }}
+}});
 
 function selectRetroDoc(doc) {{
   retroSelectedDoc = doc;

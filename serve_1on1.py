@@ -496,25 +496,56 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/login":
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length).decode("utf-8", errors="replace")
-            # form url-encoded 파싱
-            from urllib.parse import parse_qs
-            qs = parse_qs(body)
-            pw = (qs.get("pw") or [""])[0]
+            ctype = (self.headers.get("Content-Type") or "").lower()
+            # form url-encoded 와 JSON 둘 다 허용 — fetch는 JSON, form 제출은 url-encoded
+            pw = ""
+            if "application/json" in ctype:
+                try:
+                    pw = (json.loads(body) or {}).get("pw", "")
+                except Exception:
+                    pw = ""
+            else:
+                from urllib.parse import parse_qs
+                qs = parse_qs(body)
+                pw = (qs.get("pw") or [""])[0]
             expected_pw = _get_password()
             if not expected_pw:
                 self._serve_error(503, "서버에 비번이 설정되지 않았습니다 (HASLLA_1ON1_PASSWORD)")
                 return
             if hmac.compare_digest(pw, expected_pw):
-                # 비번 맞음 — cookie 발급 후 / 로 리다이렉트
-                self.send_response(303)
-                self.send_header("Location", "/")
-                self.send_header("Set-Cookie", self._set_auth_cookie())
-                self.send_header("Content-Length", "0")
-                self.end_headers()
+                # 비번 맞음 — cookie 발급. form 제출이면 303 redirect, fetch면 200 JSON.
+                if "application/json" in ctype:
+                    body_out = b'{"ok":true}'
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body_out)))
+                    self.send_header("Set-Cookie", self._set_auth_cookie())
+                    for k, v in self._cors_headers():
+                        self.send_header(k, v)
+                    self.end_headers()
+                    self.wfile.write(body_out)
+                else:
+                    self.send_response(303)
+                    self.send_header("Location", "/")
+                    self.send_header("Set-Cookie", self._set_auth_cookie())
+                    self.send_header("Content-Length", "0")
+                    for k, v in self._cors_headers():
+                        self.send_header(k, v)
+                    self.end_headers()
                 return
             # 비번 틀림 — 잠깐 sleep 으로 brute force 완화
             time.sleep(0.5)
-            self._serve_login("비밀번호가 틀렸습니다.")
+            if "application/json" in ctype:
+                body_out = b'{"ok":false,"error":"wrong_password"}'
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body_out)))
+                for k, v in self._cors_headers():
+                    self.send_header(k, v)
+                self.end_headers()
+                self.wfile.write(body_out)
+            else:
+                self._serve_login("비밀번호가 틀렸습니다.")
             return
 
         if self.path == "/save":
@@ -564,14 +595,44 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        for k, v in self._cors_headers():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(data)
+
+    # ── CORS — index.html(github.io)이 직접 fetch 호출하도록 허용 ──
+    CORS_ALLOWED = {
+        "https://sjc0310-a11y.github.io",
+        "http://localhost",
+        "http://127.0.0.1",
+    }
+    def _cors_headers(self):
+        origin = self.headers.get("Origin", "")
+        if origin in self.CORS_ALLOWED:
+            return [
+                ("Access-Control-Allow-Origin", origin),
+                ("Access-Control-Allow-Credentials", "true"),
+                ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
+                ("Access-Control-Allow-Headers", "Content-Type"),
+                ("Vary", "Origin"),
+            ]
+        return []
+
+    def do_OPTIONS(self):
+        """Preflight CORS — 모든 경로 일괄 허용"""
+        self.send_response(204)
+        for k, v in self._cors_headers():
+            self.send_header(k, v)
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.end_headers()
 
     def _serve_bytes(self, data: bytes, ctype: str, extra_headers=None):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        for k, v in self._cors_headers():
+            self.send_header(k, v)
         for k, v in (extra_headers or []):
             self.send_header(k, v)
         self.end_headers()
@@ -582,6 +643,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        for k, v in self._cors_headers():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
