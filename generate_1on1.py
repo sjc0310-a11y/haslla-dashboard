@@ -277,9 +277,36 @@ def calc_monthly_metrics(df_doc, df_ret, df_chuna, n_months=6):
 
 
 # ─── 빌드 ─────────────────────────────────────────────────
+TOPNAV_HTML = """<nav style="background:rgba(15,23,42,0.85); border-bottom:1px solid #334155;
+                         padding:8px 16px; display:flex; gap:14px; align-items:center;
+                         font-size:13px; flex-wrap:wrap; position:relative; z-index:100;">
+  <a href="/home" style="text-decoration:none; color:#38bdf8; font-weight:700;">🏥 허브</a>
+  <span style="color:#475569;">·</span>
+  <a href="https://sjc0310-a11y.github.io/haslla-dashboard/" style="text-decoration:none; color:#cbd5e1;" id="navDash">📊 경영</a>
+  <a href="/" style="text-decoration:none; color:#cbd5e1;" id="navOne">📋 1on1</a>
+  <a href="/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro">📝 회고</a>
+  <span style="margin-left:auto; color:#475569; font-size:11px;" id="navDocBadge"></span>
+</nav>
+<script>
+(function() {
+  const q = new URLSearchParams(location.search).get("doctor");
+  if (q) {
+    try { localStorage.setItem("haslla_selected_doctor", q); } catch(_) {}
+    ["navDash","navOne","navRetro"].forEach(id => {
+      const a = document.getElementById(id);
+      if (a) { const sep = a.href.includes("?") ? "&" : "?"; a.href = a.href + sep + "doctor=" + encodeURIComponent(q); }
+    });
+    const b = document.getElementById("navDocBadge");
+    if (b) b.textContent = "선택된 부원장: " + q;
+  }
+})();
+</script>"""
+
+
 def build_html(metrics, state, template, readonly=False):
     now_str = datetime.now().strftime("%Y년 %m월 %d일 %H:%M")
     html = template
+    html = html.replace("__TOPNAV__",       TOPNAV_HTML)
     html = html.replace("__GEN_TIME__", now_str)
     html = html.replace("__VICE_DOCTORS__", json.dumps(VICE_DOCTORS, ensure_ascii=False))
     html = html.replace("__DOC_COLORS__",   json.dumps(DOC_COLORS, ensure_ascii=False))

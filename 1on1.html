@@ -282,6 +282,30 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 </div>
 
 <div id="app" style="display:none;">
+  <nav style="background:rgba(15,23,42,0.85); border-bottom:1px solid #334155;
+                         padding:8px 16px; display:flex; gap:14px; align-items:center;
+                         font-size:13px; flex-wrap:wrap; position:relative; z-index:100;">
+  <a href="/home" style="text-decoration:none; color:#38bdf8; font-weight:700;">🏥 허브</a>
+  <span style="color:#475569;">·</span>
+  <a href="https://sjc0310-a11y.github.io/haslla-dashboard/" style="text-decoration:none; color:#cbd5e1;" id="navDash">📊 경영</a>
+  <a href="/" style="text-decoration:none; color:#cbd5e1;" id="navOne">📋 1on1</a>
+  <a href="/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro">📝 회고</a>
+  <span style="margin-left:auto; color:#475569; font-size:11px;" id="navDocBadge"></span>
+</nav>
+<script>
+(function() {
+  const q = new URLSearchParams(location.search).get("doctor");
+  if (q) {
+    try { localStorage.setItem("haslla_selected_doctor", q); } catch(_) {}
+    ["navDash","navOne","navRetro"].forEach(id => {
+      const a = document.getElementById(id);
+      if (a) { const sep = a.href.includes("?") ? "&" : "?"; a.href = a.href + sep + "doctor=" + encodeURIComponent(q); }
+    });
+    const b = document.getElementById("navDocBadge");
+    if (b) b.textContent = "선택된 부원장: " + q;
+  }
+})();
+</script>
   <header>
     <h1>📋 부원장 1:1 면담 (읽기 전용)</h1>
     <span class="meta" id="genTime"></span>
@@ -482,16 +506,25 @@ function migrateProject(p) {
 function renderTabs() {
   const $t = document.getElementById("tabs");
   $t.innerHTML = "";
-  VICE_DOCTORS.forEach((doc,i) => {
+  // URL ?doctor= 또는 localStorage 에 선택된 부원장이 있으면 그것을 default 로
+  let initialDoc = VICE_DOCTORS[0];
+  const q = new URLSearchParams(location.search).get("doctor");
+  let pref = q;
+  if (!pref) { try { pref = localStorage.getItem("haslla_selected_doctor"); } catch(_) {} }
+  if (pref && VICE_DOCTORS.includes(pref)) initialDoc = pref;
+  VICE_DOCTORS.forEach((doc) => {
     const el = document.createElement("div");
-    el.className = "tab" + (i===0 ? " active" : "");
+    el.className = "tab" + (doc===initialDoc ? " active" : "");
     el.textContent = doc + " 원장";
     el.style.setProperty("--doc-color", DOC_COLORS[doc] || DOC_COLORS._default);
     el.dataset.doc = doc;
     el.onclick = () => switchTab(doc);
     $t.appendChild(el);
   });
-  activeDoc = VICE_DOCTORS[0];
+  activeDoc = initialDoc;
+  // 첫 페이지 활성화도 initialDoc 으로
+  document.querySelectorAll(".doc-page").forEach(el =>
+    el.classList.toggle("active", el.dataset.doc === initialDoc));
 }
 function switchTab(doc) {
   activeDoc = doc;
@@ -505,9 +538,10 @@ function switchTab(doc) {
 function renderPages() {
   const $m = document.getElementById("main");
   $m.innerHTML = "";
-  VICE_DOCTORS.forEach((doc,i) => {
+  VICE_DOCTORS.forEach((doc) => {
     const page = document.createElement("div");
-    page.className = "doc-page" + (i===0 ? " active" : "");
+    // activeDoc 는 renderTabs() 에서 URL ?doctor= / localStorage 반영하여 설정됨
+    page.className = "doc-page" + (doc === activeDoc ? " active" : "");
     page.dataset.doc = doc;
     page.style.setProperty("--doc-color", DOC_COLORS[doc] || DOC_COLORS._default);
     page.innerHTML = renderDocShell(doc);

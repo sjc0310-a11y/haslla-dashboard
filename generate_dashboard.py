@@ -593,11 +593,35 @@ def build_html(data):
   <p style="margin-top:20px;font-size:0.78rem;color:#475569">선택한 원장의 개인뷰가 표시됩니다. 언제든 홈 버튼으로 돌아올 수 있습니다.</p>
 </div>
 
+<nav style="background:rgba(15,23,42,0.85); border-bottom:1px solid #334155; padding:8px 16px;
+            display:flex; gap:14px; align-items:center; font-size:13px; flex-wrap:wrap;
+            position:relative; z-index:100;">
+  <a href="https://1on1.haslla-admin.com/home" style="text-decoration:none; color:#38bdf8; font-weight:700;">🏥 허브</a>
+  <span style="color:#475569;">·</span>
+  <a href="./" style="text-decoration:none; color:#cbd5e1;" id="navDash">📊 경영</a>
+  <a href="https://1on1.haslla-admin.com/" style="text-decoration:none; color:#cbd5e1;" id="navOne">📋 1on1</a>
+  <a href="https://1on1.haslla-admin.com/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro">📝 회고</a>
+  <span style="margin-left:auto; color:#475569; font-size:11px;" id="navDocBadge"></span>
+</nav>
+<script>
+(function() {{
+  const q = new URLSearchParams(location.search).get("doctor");
+  if (q) {{
+    try {{ localStorage.setItem("haslla_selected_doctor", q); }} catch(_) {{}}
+    ["navOne","navRetro"].forEach(id => {{
+      const a = document.getElementById(id);
+      if (a) {{ const sep = a.href.includes("?") ? "&" : "?"; a.href = a.href + sep + "doctor=" + encodeURIComponent(q); }}
+    }});
+    const b = document.getElementById("navDocBadge");
+    if (b) b.textContent = "선택된 부원장: " + q;
+  }}
+}})();
+</script>
+
 <div class="header">
   <div style="display:flex;align-items:center;gap:8px">
-    <button class="home-btn" onclick="goHome()" title="홈으로">🏠 홈</button>
+    <button class="home-btn" onclick="goHome()" title="홈 화면(전체 보기)으로">🏠 홈</button>
     <a class="update-btn" href="haslla:update" onclick="onUpdateClick(event)" title="한의원 PC에서 update_dashboard.bat 실행 (haslla:// 프로토콜 등록 필요)">🔄 지금 업데이트</a>
-    <a class="update-btn" href="https://1on1.haslla-admin.com/retro" target="_blank" title="주간 회고 작성 (비번 필요, cookie 1년)">✏️ 회고 작성</a>
     <h1>🏥 하슬라한의원 경영 대시보드</h1>
   </div>
   <div class="week-nav">
@@ -838,7 +862,12 @@ var currentIdx = allWeeks.length > 0 ? allWeeks.length - 1 : 0;
 var chunaDoctors  = {json.dumps(DOCTORS, ensure_ascii=False)};
 var activeDoctors = {json.dumps(ACTIVE_DOCTORS, ensure_ascii=False)};
 var docColorMap   = {doc_colors_json};
-var myDoc      = localStorage.getItem('haslla_myDoc') || null;
+var myDoc      = (function() {{
+  var q = new URLSearchParams(location.search).get('doctor');
+  if (q && q !== '전체') {{ try {{ localStorage.setItem('haslla_myDoc', q); }} catch(_) {{}} return q; }}
+  if (q === '전체') {{ try {{ localStorage.removeItem('haslla_myDoc'); }} catch(_) {{}} return null; }}
+  return localStorage.getItem('haslla_myDoc') || null;
+}})();
 var retroDoc   = myDoc || chunaDoctors[0] || '노왕식';
 var retros     = {retros_json};
 var retroSelectedDoc = null;

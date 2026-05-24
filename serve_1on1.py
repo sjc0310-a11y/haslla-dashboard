@@ -55,6 +55,9 @@ OUT_HTML  = ROOT / "1on1_local.html"
 # 회고 대상 원장 — 한 곳에서 관리. 추후 변경 시 generate_dashboard.py 의 ACTIVE_DOCTORS 와 일치시키면 됨
 RETRO_DOCTORS = ["이문환", "방민준", "김한중"]
 
+# 외부 경영 대시보드 URL (GitHub Pages)
+DASHBOARD_URL = "https://sjc0310-a11y.github.io/haslla-dashboard/"
+
 HOST = "127.0.0.1"
 PORT = 7711
 
@@ -80,6 +83,160 @@ def _expected_cookie() -> str:
         return ""
     # HMAC(pw, "verified") — 비번 자체가 secret 이라 별도 secret 불필요
     return hmac.new(pw.encode("utf-8"), b"verified", hashlib.sha256).hexdigest()
+
+
+HOME_HTML = """<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>🏥 하슬라한의원 대시보드 허브</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<style>
+  :root {
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --border:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;
+         background:var(--bg); color:var(--text);
+         min-height:100vh; display:flex; flex-direction:column; }
+  header { padding:24px 24px 12px; }
+  header h1 { margin:0; font-size:24px; font-weight:700; }
+  header .sub { color:var(--muted); font-size:13px; margin-top:6px; }
+  main { flex:1; padding:20px 24px 40px; max-width:1100px; width:100%; margin:0 auto; }
+
+  .doctor-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px;
+                   padding:14px 16px; background:var(--panel); border:1px solid var(--border);
+                   border-radius:12px; align-items:center; }
+  .doctor-chips .label { font-size:13px; color:var(--muted); margin-right:6px; }
+  .chip { background:var(--panel2); color:var(--muted); border:1px solid var(--border);
+          padding:8px 18px; border-radius:18px; font-size:14px; cursor:pointer;
+          font-weight:500; transition:all .15s; }
+  .chip:hover { color:var(--text); border-color:var(--accent); }
+  .chip.active { background:var(--accent); color:#0f172a; border-color:var(--accent); font-weight:700; }
+
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+          padding:24px 22px; text-decoration:none; color:var(--text);
+          transition:all .2s; display:flex; flex-direction:column; gap:8px; }
+  .card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .card .icon { font-size:32px; }
+  .card .title { font-size:18px; font-weight:700; }
+  .card .desc { font-size:13px; color:var(--muted); line-height:1.5; }
+  .card .badge-row { margin-top:auto; padding-top:12px; font-size:11px; color:var(--muted);
+                      border-top:1px solid var(--border); display:flex; gap:8px; flex-wrap:wrap; }
+  .card .badge { background:var(--panel2); padding:3px 8px; border-radius:6px; }
+  .card.dash .icon { color:#3b82f6; }
+  .card.one .icon { color:#10b981; }
+  .card.retro .icon { color:#a78bfa; }
+
+  footer { text-align:center; padding:18px; color:var(--muted); font-size:11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏥 하슬라한의원 대시보드 허브</h1>
+  <div class="sub">부원장 선택 후 원하는 화면으로 이동하세요. 선택한 원장은 모든 화면에 자동 적용됩니다.</div>
+</header>
+<main>
+  <div class="doctor-chips" id="docChips">
+    <span class="label">부원장 선택:</span>
+  </div>
+
+  <div class="card-grid">
+    <a class="card dash" id="cardDash" href="https://sjc0310-a11y.github.io/haslla-dashboard/">
+      <div class="icon">📊</div>
+      <div class="title">경영 대시보드</div>
+      <div class="desc">매출·재진율·추나·신환 등 객관 지표. 부원장 개인 뷰 또는 전체 뷰.</div>
+      <div class="badge-row"><span class="badge">매주 일요일 자동 갱신</span><span class="badge">회고 인라인 편집</span></div>
+    </a>
+
+    <a class="card one" id="cardOne" href="/">
+      <div class="icon">📋</div>
+      <div class="title">1on1 면담</div>
+      <div class="desc">월 1회 면담 노트·프로젝트 추적·Conversation Topic·Follow-up 자동 관리.</div>
+      <div class="badge-row"><span class="badge">프로젝트 보드</span><span class="badge">6개월 history 모달</span></div>
+    </a>
+
+    <a class="card retro" id="cardRetro" href="/retro">
+      <div class="icon">📝</div>
+      <div class="title">주간 회고 일람</div>
+      <div class="desc">전체 회고 검색·필터·통계. 작성은 경영 대시보드에서 박스 직접 클릭.</div>
+      <div class="badge-row"><span class="badge">전문 검색</span><span class="badge">최근 4주 작성률</span></div>
+    </a>
+  </div>
+</main>
+<footer>cookie 인증 1년 · 같은 도메인 공유 · 한의원 PC가 켜져 있을 때 동작</footer>
+
+<script>
+const DOCTORS = __RETRO_DOCTORS_JSON__;
+const LS_KEY = "haslla_selected_doctor";
+let activeDoc = "전체";
+try { activeDoc = localStorage.getItem(LS_KEY) || "전체"; } catch(_) {}
+// URL 쿼리에서 doctor= 있으면 우선
+const qDoc = new URLSearchParams(location.search).get("doctor");
+if (qDoc) activeDoc = qDoc;
+
+const $chips = document.getElementById("docChips");
+function renderChips() {
+  // "전체" + 모든 부원장
+  const labels = ["전체"].concat(DOCTORS);
+  $chips.querySelectorAll(".chip").forEach(n => n.remove());
+  labels.forEach(name => {
+    const b = document.createElement("button");
+    b.className = "chip" + (name === activeDoc ? " active" : "");
+    b.textContent = name;
+    b.addEventListener("click", () => {
+      activeDoc = name;
+      try { localStorage.setItem(LS_KEY, name); } catch(_) {}
+      renderChips();
+      updateLinks();
+    });
+    $chips.appendChild(b);
+  });
+}
+function updateLinks() {
+  const param = activeDoc === "전체" ? "" : "?doctor=" + encodeURIComponent(activeDoc);
+  document.getElementById("cardDash").href  = "https://sjc0310-a11y.github.io/haslla-dashboard/" + param;
+  document.getElementById("cardOne").href   = "/" + param;
+  document.getElementById("cardRetro").href = "/retro" + param;
+}
+renderChips(); updateLinks();
+</script>
+</body>
+</html>
+""".replace("__RETRO_DOCTORS_JSON__", json.dumps(RETRO_DOCTORS, ensure_ascii=False))
+
+
+# 공통 상단 nav — 모든 페이지 헤더에 들어가는 작은 HTML 조각
+TOPNAV_HTML = """<nav style="background:rgba(15,23,42,0.85); border-bottom:1px solid #334155;
+                         padding:8px 16px; display:flex; gap:14px; align-items:center;
+                         font-size:13px; flex-wrap:wrap; backdrop-filter:blur(6px); z-index:100;
+                         position:relative;">
+  <a href="/home" style="text-decoration:none; color:#38bdf8; font-weight:700;">🏥 허브</a>
+  <span style="color:#475569;">·</span>
+  <a href="__DASHBOARD_URL__" style="text-decoration:none; color:#cbd5e1;" id="navDash">📊 경영</a>
+  <a href="/" style="text-decoration:none; color:#cbd5e1;" id="navOne">📋 1on1</a>
+  <a href="/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro">📝 회고</a>
+  <span style="margin-left:auto; color:#475569; font-size:11px;" id="navDocBadge"></span>
+</nav>
+<script>
+(function() {
+  // ?doctor= 가 있으면 모든 nav 링크에 같이 전달
+  const q = new URLSearchParams(location.search).get("doctor");
+  if (q) {
+    try { localStorage.setItem("haslla_selected_doctor", q); } catch(_) {}
+    ["navDash","navOne","navRetro"].forEach(id => {
+      const a = document.getElementById(id);
+      if (a) { const sep = a.href.includes("?") ? "&" : "?"; a.href = a.href + sep + "doctor=" + encodeURIComponent(q); }
+    });
+    const b = document.getElementById("navDocBadge");
+    if (b) b.textContent = "선택된 부원장: " + q;
+  }
+})();
+</script>
+""".replace("__DASHBOARD_URL__", DASHBOARD_URL)
 
 
 RETRO_HTML = """<!doctype html>
@@ -152,10 +309,9 @@ RETRO_HTML = """<!doctype html>
 </style>
 </head>
 <body>
+__TOPNAV__
 <header id="pageHeader">
   <h1>📚 주간 회고 일람</h1>
-  <a class="nav-link" href="/">← 1on1 면담으로</a>
-  <a class="nav-link" href="https://sjc0310-a11y.github.io/haslla-dashboard/" target="_blank">경영 대시보드 →</a>
   <span class="meta" style="margin-left:auto; font-size:12px;">작성·수정은 경영 대시보드 회고 박스 직접 클릭</span>
 </header>
 <script>
@@ -224,6 +380,13 @@ const DOCTORS = __RETRO_DOCTORS_JSON__;
 let ALL = [];               // 전체 retro 배열
 let activeDoctor = "전체";  // chip 필터
 let searchQ = "";
+// URL ?doctor= 또는 localStorage 우선
+(function() {
+  const q = new URLSearchParams(location.search).get("doctor");
+  let pref = q;
+  if (!pref) { try { pref = localStorage.getItem("haslla_selected_doctor"); } catch(_) {} }
+  if (pref && (pref === "전체" || DOCTORS.includes(pref))) activeDoctor = pref;
+})();
 
 const $chips  = document.getElementById("docChips");
 const $search = document.getElementById("searchInput");
@@ -341,7 +504,8 @@ $search.addEventListener("input", e => { searchQ = e.target.value; renderCards()
 </script>
 </body>
 </html>
-""".replace("__RETRO_DOCTORS_JSON__", json.dumps(RETRO_DOCTORS, ensure_ascii=False))
+""".replace("__RETRO_DOCTORS_JSON__", json.dumps(RETRO_DOCTORS, ensure_ascii=False)) \
+   .replace("__TOPNAV__", TOPNAV_HTML)
 
 
 LOGIN_HTML = """<!doctype html>
@@ -463,6 +627,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_file(DATA_JSON, "application/json; charset=utf-8")
             else:
                 self._serve_bytes(b"{}", "application/json; charset=utf-8")
+        elif self.path == "/home" or self.path.startswith("/home?"):
+            self._serve_bytes(HOME_HTML.encode("utf-8"), "text/html; charset=utf-8")
         elif self.path == "/retro" or self.path.startswith("/retro?"):
             # GitHub Pages index.html iframe 임베드 허용
             self._serve_bytes(

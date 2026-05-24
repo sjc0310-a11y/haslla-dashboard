@@ -450,16 +450,25 @@ function migrateProject(p) {
 function renderTabs() {
   const $t = document.getElementById("tabs");
   $t.innerHTML = "";
-  VICE_DOCTORS.forEach((doc,i) => {
+  // URL ?doctor= 또는 localStorage 에 선택된 부원장이 있으면 그것을 default 로
+  let initialDoc = VICE_DOCTORS[0];
+  const q = new URLSearchParams(location.search).get("doctor");
+  let pref = q;
+  if (!pref) { try { pref = localStorage.getItem("haslla_selected_doctor"); } catch(_) {} }
+  if (pref && VICE_DOCTORS.includes(pref)) initialDoc = pref;
+  VICE_DOCTORS.forEach((doc) => {
     const el = document.createElement("div");
-    el.className = "tab" + (i===0 ? " active" : "");
+    el.className = "tab" + (doc===initialDoc ? " active" : "");
     el.textContent = doc + " 원장";
     el.style.setProperty("--doc-color", DOC_COLORS[doc] || DOC_COLORS._default);
     el.dataset.doc = doc;
     el.onclick = () => switchTab(doc);
     $t.appendChild(el);
   });
-  activeDoc = VICE_DOCTORS[0];
+  activeDoc = initialDoc;
+  // 첫 페이지 활성화도 initialDoc 으로
+  document.querySelectorAll(".doc-page").forEach(el =>
+    el.classList.toggle("active", el.dataset.doc === initialDoc));
 }
 function switchTab(doc) {
   activeDoc = doc;
@@ -473,9 +482,10 @@ function switchTab(doc) {
 function renderPages() {
   const $m = document.getElementById("main");
   $m.innerHTML = "";
-  VICE_DOCTORS.forEach((doc,i) => {
+  VICE_DOCTORS.forEach((doc) => {
     const page = document.createElement("div");
-    page.className = "doc-page" + (i===0 ? " active" : "");
+    // activeDoc 는 renderTabs() 에서 URL ?doctor= / localStorage 반영하여 설정됨
+    page.className = "doc-page" + (doc === activeDoc ? " active" : "");
     page.dataset.doc = doc;
     page.style.setProperty("--doc-color", DOC_COLORS[doc] || DOC_COLORS._default);
     page.innerHTML = renderDocShell(doc);
@@ -1254,7 +1264,7 @@ PAGE_TEMPLATE = r"""<!doctype html>
 <style>__COMMON_CSS__</style>
 </head>
 <body>
-
+__TOPNAV__
 <header>
   <h1>📋 부원장 1:1 면담 대시보드</h1>
   <span class="meta">__GEN_TIME__ 기준</span>
@@ -1324,6 +1334,7 @@ PUBLIC_TEMPLATE = r"""<!doctype html>
 </div>
 
 <div id="app" style="display:none;">
+  __TOPNAV__
   <header>
     <h1>📋 부원장 1:1 면담 (읽기 전용)</h1>
     <span class="meta" id="genTime"></span>

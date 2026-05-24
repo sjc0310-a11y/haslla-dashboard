@@ -123,11 +123,35 @@
   <p style="margin-top:20px;font-size:0.78rem;color:#475569">선택한 원장의 개인뷰가 표시됩니다. 언제든 홈 버튼으로 돌아올 수 있습니다.</p>
 </div>
 
+<nav style="background:rgba(15,23,42,0.85); border-bottom:1px solid #334155; padding:8px 16px;
+            display:flex; gap:14px; align-items:center; font-size:13px; flex-wrap:wrap;
+            position:relative; z-index:100;">
+  <a href="https://1on1.haslla-admin.com/home" style="text-decoration:none; color:#38bdf8; font-weight:700;">🏥 허브</a>
+  <span style="color:#475569;">·</span>
+  <a href="./" style="text-decoration:none; color:#cbd5e1;" id="navDash">📊 경영</a>
+  <a href="https://1on1.haslla-admin.com/" style="text-decoration:none; color:#cbd5e1;" id="navOne">📋 1on1</a>
+  <a href="https://1on1.haslla-admin.com/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro">📝 회고</a>
+  <span style="margin-left:auto; color:#475569; font-size:11px;" id="navDocBadge"></span>
+</nav>
+<script>
+(function() {
+  const q = new URLSearchParams(location.search).get("doctor");
+  if (q) {
+    try { localStorage.setItem("haslla_selected_doctor", q); } catch(_) {}
+    ["navOne","navRetro"].forEach(id => {
+      const a = document.getElementById(id);
+      if (a) { const sep = a.href.includes("?") ? "&" : "?"; a.href = a.href + sep + "doctor=" + encodeURIComponent(q); }
+    });
+    const b = document.getElementById("navDocBadge");
+    if (b) b.textContent = "선택된 부원장: " + q;
+  }
+})();
+</script>
+
 <div class="header">
   <div style="display:flex;align-items:center;gap:8px">
-    <button class="home-btn" onclick="goHome()" title="홈으로">🏠 홈</button>
+    <button class="home-btn" onclick="goHome()" title="홈 화면(전체 보기)으로">🏠 홈</button>
     <a class="update-btn" href="haslla:update" onclick="onUpdateClick(event)" title="한의원 PC에서 update_dashboard.bat 실행 (haslla:// 프로토콜 등록 필요)">🔄 지금 업데이트</a>
-    <a class="update-btn" href="https://1on1.haslla-admin.com/retro" target="_blank" title="주간 회고 작성 (비번 필요, cookie 1년)">✏️ 회고 작성</a>
     <h1>🏥 하슬라한의원 경영 대시보드</h1>
   </div>
   <div class="week-nav">
@@ -136,7 +160,7 @@
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 24일 10:27 기준</span><br>
+    <span class="updated">2026년 05월 24일 10:43 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -368,7 +392,12 @@ var currentIdx = allWeeks.length > 0 ? allWeeks.length - 1 : 0;
 var chunaDoctors  = ["이문환", "방민준", "김한중"];
 var activeDoctors = ["이문환", "방민준", "김한중"];
 var docColorMap   = {"노왕식": "#3b82f6", "이문환": "#10b981", "방민준": "#f59e0b", "김한중": "#38bdf8", "배용빈": "#f472b6"};
-var myDoc      = localStorage.getItem('haslla_myDoc') || null;
+var myDoc      = (function() {
+  var q = new URLSearchParams(location.search).get('doctor');
+  if (q && q !== '전체') { try { localStorage.setItem('haslla_myDoc', q); } catch(_) {} return q; }
+  if (q === '전체') { try { localStorage.removeItem('haslla_myDoc'); } catch(_) {} return null; }
+  return localStorage.getItem('haslla_myDoc') || null;
+})();
 var retroDoc   = myDoc || chunaDoctors[0] || '노왕식';
 var retros     = [{"week_label": "2026-05-04", "doctor": "김한중", "good": "휴진 주였지만 자보 환자 3명 케이스 정리. 다음 주 진료 흐름 사전 준비됨.", "bad": "부재 동안 자보 신환 1명이 다른 원장님께 인계됨. 본인 자보군 누수.", "plan": "자보 환자 인수인계 메모 표준 양식을 본인 진료실에 비치.", "page_url": "https://www.notion.so/2026-05-04-35e4a9279f24817fb2c8d43ccfffa972"}, {"week_label": "2026-05-04", "doctor": "노왕식", "good": "팀 매출 1위(1,345만원). 비급여 443만원·자보 276만원으로 수입 구조가 한쪽에 쏠리지 않게 분산됨. 건보추나도 30건으로 팀 평균 위쪽 유지.", "bad": "건보추나 30건 — 목표(50건/주) 미달. 신환 47명이라는 좋은 유입 흐름에도 추나 적응증 환자에게 추나 시도를 충분히 권유하지 못한 주가 있었음.", "plan": "1) 신환 초진 시 추나 적응증 체크리스트를 차트에 고정해서 누락 방지. 2) 매일 진료 종료 후 본인 건보추나 카운트를 확인 — 일 8건 이상이 50건/주 페이스.", "page_url": "https://www.notion.so/2026-05-04-35e4a9279f2481a49eb4e1221092efed"}, {"week_label": "2026-05-04", "doctor": "이문환", "good": "건보추나 29건 — 본인 최고치. 약침 환자 중 추나도 같이 받을 분께 적극 안내한 결과.", "bad": "신환 4명 중 2명만 2진 예약 잡혀감. 초진에서 치료 계획 설명이 짧았던 게 원인으로 추정.", "plan": "초진 마무리에 “다음에 ○○ 봐드릴게요” 한 줄을 무조건 추가 — 다음 약속을 자연스럽게 유도.", "page_url": "https://www.notion.so/2026-05-04-35e4a9279f248173a0bac9491630b652"}, {"week_label": "2026-05-11", "doctor": "방민준", "good": "- 녹용한약 3개월한 것은 의미를 둘만한 일이다. 컨플레인을 했던 송재희 환자에게 진료실에서 마음을 풀어주려고 노력을 쏟았고, 그 이후 MRI 및 CT 자료를 받아 분석하고 열심히 설명해드렸다. 그리고 환자의 말 하나하나를 열심히 들어서 한약 진료로 이어갔다. 나의 노력을 매출로 전환시켰다. 큰 경험이다.\n\n- 내가 오래걸릴 것 같으면 데스크와 치료실에 몇분 걸릴 것 같다고 미리 브리핑한 뒤에 소통한 것이 좋았다. 서로가 서로의 자리에서 일을 해야한다. 내 부족함이 타인에게 피해를 주지 않으려면 타인이 그 상황에 대처할 수 있도록 해야한다.\n\n- 부족한 점 그때그때 선원장님께 여쭤보며 활용한 것, 원장 매뉴얼에 있는 자료들 점점 더 잘 활용하고 있는 점 잘했다.", "bad": "- 흉추 쓰러스트 아직도 나만의 감을 잡지 못했다.(사람 별 힘점 및 고속저진폭) 흉추 쓰러스트가 애매한 분들께 다른 술기를 사용한 것은 잘했다.\n\n- 린다이어트 아직 많이 부족하다. 챕터별로 끊는 것을 연습하자. 회고 작성 후에 진료실에서 촬영하면서 연습하기\n\n- 타 원장님 환자를 볼 때, 나만의 기준이 세워지지 않은 점이 아쉽다. 차트를 믿을 것인가 나의 안진을 믿을 것인가, 환자의 말을 믿을 것인가\n\n- 아직도 술기적인 부족함이 많다. 천피라든지, 자침 깊이라든지? 액팅이 밀리지 않을 때, 더 신경써서 정석대로 액팅해보자. 근육 눌러놓고 수직 맞춘다음 빠르게 천피\n\n- 라포가 좀 쌓였다고 볼 수 있는 최동환님을 액팅이 밀렸다는 이유로 신경쓰지 못했다. 나에게 첩건까지 드시는 분인데 내가 신경을 못 써드리면 이 환자분은 누구에게 의지할 수 있겠나. 소중한 사람일수록 더 소중하게 정성스럽게 진료보기", "plan": "• 계획 1\n    ◦ 치료실에서 린다 설명하는 매뉴얼에 대해서 선원장님과 논의해보기\n• 계획 2\n    ◦ 여유 있을 때 애매한 환자 치료 방법 공부 후에 차트에 보완해놓기", "page_url": "https://www.notion.so/2026-05-11-3644a9279f248058b4e4d593c898a5fd"}, {"week_label": "2026-05-11", "doctor": "이문환", "good": "•  이제 부항, IR까지 해도 액팅이 거의 밀리지 않는 것\n  • 일일 최고치 추나 10개 기록(5/15)", "bad": "• 다른 원장님들에 비해 비급여 매출 부족", "plan": "• 추나 효과를 확신하기 때문에 더 자신있게 추나 권하기\n  • 다이어트 필요한 분들 적극적으로 추나 권하기", "page_url": "https://www.notion.so/2026-05-11-3644a9279f248004afccd90348971478"}, {"week_label": "2026-05-11", "doctor": "김한중", "good": "ㅇㅇ", "bad": "zzzzz", "plan": "", "page_url": ""}, {"week_label": "2026-05-18", "doctor": "김한중", "good": "dd", "bad": "", "plan": "", "page_url": ""}];
 var retroSelectedDoc = null;
