@@ -7,7 +7,8 @@ echo %date% %time% 시작 >> update_log.txt
 python read_chuna.py >> update_log.txt 2>&1
 python read_okchart.py >> update_log.txt 2>&1
 python read_retention.py >> update_log.txt 2>&1
-python read_retro_from_notion.py >> update_log.txt 2>&1
+REM 노션 회고 인입은 2026-05-22 부로 비활성 — 회고는 https://1on1.haslla-admin.com/retro 에서 직접 작성
+REM python read_retro_from_notion.py >> update_log.txt 2>&1
 REM 1on1 노션 인입은 2026-05-22 부로 비활성 — 외부 편집은 Cloudflare Tunnel 통해 직접
 REM python read_1on1_from_notion.py >> update_log.txt 2>&1
 python generate_dashboard.py >> update_log.txt 2>&1

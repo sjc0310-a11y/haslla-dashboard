@@ -597,6 +597,7 @@ def build_html(data):
   <div style="display:flex;align-items:center;gap:8px">
     <button class="home-btn" onclick="goHome()" title="홈으로">🏠 홈</button>
     <a class="update-btn" href="haslla:update" onclick="onUpdateClick(event)" title="한의원 PC에서 update_dashboard.bat 실행 (haslla:// 프로토콜 등록 필요)">🔄 지금 업데이트</a>
+    <a class="update-btn" href="https://1on1.haslla-admin.com/retro" target="_blank" title="주간 회고 작성 (비번 필요, cookie 1년)">✏️ 회고 작성</a>
     <h1>🏥 하슬라한의원 경영 대시보드</h1>
   </div>
   <div class="week-nav">
