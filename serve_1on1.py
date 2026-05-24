@@ -152,12 +152,19 @@ RETRO_HTML = """<!doctype html>
 </style>
 </head>
 <body>
-<header>
+<header id="pageHeader">
   <h1>📝 주간 회고 작성</h1>
   <a class="nav-link" href="/">← 1on1 면담으로</a>
   <span id="saveStatus" class="save-status">대기</span>
   <button id="manualDlBtn" style="display:none;">⬇ 백업 다운로드</button>
 </header>
+<script>
+  // iframe 임베드 모드 — ?embedded=1 이면 header 숨기고 컴팩트하게
+  if (new URLSearchParams(location.search).get("embedded") === "1") {
+    document.getElementById("pageHeader").style.display = "none";
+    document.body.style.background = "transparent";
+  }
+</script>
 <main>
   <div class="controls">
     <label>주차 (월요일)
@@ -422,7 +429,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _serve_login(self, err: str = ""):
         html = LOGIN_HTML.replace("__ERR__", err)
-        self._serve_bytes(html.encode("utf-8"), "text/html; charset=utf-8")
+        # iframe 내부에서도 로그인 화면이 보이도록 frame-ancestors 허용
+        self._serve_bytes(
+            html.encode("utf-8"), "text/html; charset=utf-8",
+            extra_headers=[
+                ("Content-Security-Policy",
+                 "frame-ancestors 'self' https://sjc0310-a11y.github.io https://*.github.io"),
+            ],
+        )
 
     def _set_auth_cookie(self):
         c = cookies.SimpleCookie()
@@ -430,9 +444,11 @@ class Handler(BaseHTTPRequestHandler):
         c[COOKIE_NAME]["max-age"] = COOKIE_MAX_AGE
         c[COOKIE_NAME]["path"] = "/"
         c[COOKIE_NAME]["httponly"] = True
-        c[COOKIE_NAME]["samesite"] = "Lax"
-        # Secure: HTTPS 환경에서만 보내짐. Cloudflare Tunnel 통과 시 HTTPS, 로컬은 HTTP.
-        # 로컬 사용을 위해 Secure 는 일부러 안 붙임 — Tunnel 통과 시에도 작동.
+        # iframe(cross-site) 안에서도 cookie 전송되어야 하므로 None + Secure.
+        # Cloudflare Tunnel 통과 시 HTTPS이라 Secure 만족. 한의원 PC localhost 직접 접속은
+        # 인증 면제(localhost bypass)라 cookie 자체 불필요.
+        c[COOKIE_NAME]["samesite"] = "None"
+        c[COOKIE_NAME]["secure"] = True
         return c.output(header="").strip()
 
     def do_GET(self):
@@ -458,8 +474,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_file(DATA_JSON, "application/json; charset=utf-8")
             else:
                 self._serve_bytes(b"{}", "application/json; charset=utf-8")
-        elif self.path == "/retro":
-            self._serve_bytes(RETRO_HTML.encode("utf-8"), "text/html; charset=utf-8")
+        elif self.path == "/retro" or self.path.startswith("/retro?"):
+            # GitHub Pages index.html iframe 임베드 허용
+            self._serve_bytes(
+                RETRO_HTML.encode("utf-8"),
+                "text/html; charset=utf-8",
+                extra_headers=[
+                    ("Content-Security-Policy",
+                     "frame-ancestors 'self' https://sjc0310-a11y.github.io https://*.github.io"),
+                ],
+            )
         elif self.path == "/retro/data":
             if RETRO_JSON.exists():
                 self._serve_file(RETRO_JSON, "application/json; charset=utf-8")
@@ -543,11 +567,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _serve_bytes(self, data: bytes, ctype: str):
+    def _serve_bytes(self, data: bytes, ctype: str, extra_headers=None):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        for k, v in (extra_headers or []):
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(data)
 

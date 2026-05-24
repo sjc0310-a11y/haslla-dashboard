@@ -137,7 +137,7 @@
     <button id="nextWeek" onclick="changeWeek(1)">다음 주 →</button>
   </div>
   <div style="text-align:right">
-    <span class="updated">2026년 05월 24일 09:06 기준</span><br>
+    <span class="updated">2026년 05월 24일 09:23 기준</span><br>
     <span id="headerDoc" style="font-size:0.8rem;color:#60a5fa;font-weight:600"></span>
   </div>
 </div>
@@ -320,14 +320,23 @@
     </div>
   </div>
 
-  <!-- ═══ 주간 회고 (노션 DB → 매일 자동 동기화) ══════════ -->
+  <!-- ═══ 주간 회고 (대시보드 내 직접 편집) ══════════ -->
   <div class="section-title" id="retroSectionTitle">📗 주간 회고</div>
   <div class="chart-box" id="retroBox">
     <div class="retro-tabs" id="retroTabs"></div>
     <div id="retroContent"></div>
-    <div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid #334155">
-      <a href="https://www.notion.so/a59dc6c66fe94b31b78fee7770dc12aa" target="_blank" rel="noopener" style="display:inline-block;background:#3b82f6;color:#fff;padding:9px 22px;border-radius:8px;text-decoration:none;font-size:0.84rem;font-weight:600">📝 노션에서 작성·수정하기 →</a>
-      <p style="font-size:0.7rem;color:#475569;margin-top:7px">노션에서 변경한 내용은 매일 자동 동기화됩니다 (최대 24h 지연)</p>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #334155">
+      <details>
+        <summary style="cursor:pointer;color:#3b82f6;font-size:0.85rem;font-weight:600;list-style:none;display:inline-flex;align-items:center;gap:6px">
+          ✏️ 이 자리에서 작성·수정하기
+          <span style="font-size:0.7rem;color:#94a3b8;font-weight:400">— 첫 사용 시 비밀번호 1회 입력</span>
+        </summary>
+        <iframe src="https://1on1.haslla-admin.com/retro?embedded=1"
+                style="width:100%;height:720px;border:1px solid #334155;border-radius:8px;margin-top:12px;background:#0f172a"
+                title="주간 회고 편집"
+                referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <p style="font-size:0.7rem;color:#475569;margin-top:7px">편집·저장이 끝나면 페이지를 새로고침해 주세요 (자동 새 빌드는 매주 일요일 18시).</p>
+      </details>
     </div>
   </div>
 
