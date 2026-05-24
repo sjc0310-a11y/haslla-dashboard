@@ -280,25 +280,40 @@ def calc_monthly_metrics(df_doc, df_ret, df_chuna, n_months=6):
 TOPNAV_HTML = """<nav style="background:rgba(15,23,42,0.85); border-bottom:1px solid #334155;
                          padding:8px 16px; display:flex; gap:14px; align-items:center;
                          font-size:13px; flex-wrap:wrap; position:relative; z-index:100;">
-  <a href="/home" style="text-decoration:none; color:#38bdf8; font-weight:700;">🏥 허브</a>
+  <a href="/home" style="text-decoration:none; color:#38bdf8; font-weight:700;" id="navHub" data-base="/home">🏥 허브</a>
   <span style="color:#475569;">·</span>
-  <a href="https://sjc0310-a11y.github.io/haslla-dashboard/" style="text-decoration:none; color:#cbd5e1;" id="navDash">📊 경영</a>
-  <a href="/" style="text-decoration:none; color:#cbd5e1;" id="navOne">📋 1on1</a>
-  <a href="/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro">📝 회고</a>
+  <a href="https://sjc0310-a11y.github.io/haslla-dashboard/" style="text-decoration:none; color:#cbd5e1;" id="navDash" data-base="https://sjc0310-a11y.github.io/haslla-dashboard/">📊 경영</a>
+  <a href="/" style="text-decoration:none; color:#cbd5e1;" id="navOne" data-base="/">📋 1on1</a>
+  <a href="/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro" data-base="/retro">📝 회고</a>
   <span style="margin-left:auto; color:#475569; font-size:11px;" id="navDocBadge"></span>
 </nav>
 <script>
 (function() {
-  const q = new URLSearchParams(location.search).get("doctor");
-  if (q) {
-    try { localStorage.setItem("haslla_selected_doctor", q); } catch(_) {}
-    ["navDash","navOne","navRetro"].forEach(id => {
-      const a = document.getElementById(id);
-      if (a) { const sep = a.href.includes("?") ? "&" : "?"; a.href = a.href + sep + "doctor=" + encodeURIComponent(q); }
-    });
-    const b = document.getElementById("navDocBadge");
-    if (b) b.textContent = "선택된 부원장: " + q;
+  function curDoc() {
+    const q = new URLSearchParams(location.search).get("doctor");
+    if (q) return q;
+    try { return localStorage.getItem("haslla_selected_doctor") || ""; } catch(_) { return ""; }
   }
+  const q0 = new URLSearchParams(location.search).get("doctor");
+  if (q0) { try { localStorage.setItem("haslla_selected_doctor", q0); } catch(_) {} }
+  ["navHub","navDash","navOne","navRetro"].forEach(id => {
+    const a = document.getElementById(id);
+    if (!a) return;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      const d = curDoc();
+      const base = a.dataset.base || a.getAttribute("href");
+      if (d && d !== "전체") {
+        const sep = base.includes("?") ? "&" : "?";
+        window.location.href = base + sep + "doctor=" + encodeURIComponent(d);
+      } else {
+        window.location.href = base;
+      }
+    });
+  });
+  const b = document.getElementById("navDocBadge");
+  const cur = curDoc();
+  if (b && cur && cur !== "전체") b.textContent = "선택된 부원장: " + cur;
 })();
 </script>"""
 

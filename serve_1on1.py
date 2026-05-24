@@ -143,23 +143,26 @@ HOME_HTML = """<!doctype html>
   <div class="doctor-chips" id="docChips">
     <span class="label">부원장 선택:</span>
   </div>
+  <div id="selectionBadge" style="margin:-12px 0 22px; font-size:13px; color:#94a3b8;">
+    현재 선택: <strong id="curDocLabel" style="color:#38bdf8;">—</strong>
+  </div>
 
   <div class="card-grid">
-    <a class="card dash" id="cardDash" href="https://sjc0310-a11y.github.io/haslla-dashboard/">
+    <a class="card dash" id="cardDash" href="#" data-base="https://sjc0310-a11y.github.io/haslla-dashboard/">
       <div class="icon">📊</div>
       <div class="title">경영 대시보드</div>
       <div class="desc">매출·재진율·추나·신환 등 객관 지표. 부원장 개인 뷰 또는 전체 뷰.</div>
       <div class="badge-row"><span class="badge">매주 일요일 자동 갱신</span><span class="badge">회고 인라인 편집</span></div>
     </a>
 
-    <a class="card one" id="cardOne" href="/">
+    <a class="card one" id="cardOne" href="#" data-base="/">
       <div class="icon">📋</div>
       <div class="title">1on1 면담</div>
       <div class="desc">월 1회 면담 노트·프로젝트 추적·Conversation Topic·Follow-up 자동 관리.</div>
       <div class="badge-row"><span class="badge">프로젝트 보드</span><span class="badge">6개월 history 모달</span></div>
     </a>
 
-    <a class="card retro" id="cardRetro" href="/retro">
+    <a class="card retro" id="cardRetro" href="#" data-base="/retro">
       <div class="icon">📝</div>
       <div class="title">주간 회고 일람</div>
       <div class="desc">전체 회고 검색·필터·통계. 작성은 경영 대시보드에서 박스 직접 클릭.</div>
@@ -172,37 +175,66 @@ HOME_HTML = """<!doctype html>
 <script>
 const DOCTORS = __RETRO_DOCTORS_JSON__;
 const LS_KEY = "haslla_selected_doctor";
+// URL 쿼리에서 doctor= 가 있으면 그것을 최우선 — 없으면 localStorage 또는 "전체"
 let activeDoc = "전체";
-try { activeDoc = localStorage.getItem(LS_KEY) || "전체"; } catch(_) {}
-// URL 쿼리에서 doctor= 있으면 우선
 const qDoc = new URLSearchParams(location.search).get("doctor");
-if (qDoc) activeDoc = qDoc;
+if (qDoc) {
+  activeDoc = qDoc;
+} else {
+  try { activeDoc = localStorage.getItem(LS_KEY) || "전체"; } catch(_) {}
+}
+// 옛 데이터(예: "노왕식")가 남아있으면 무효화
+if (activeDoc !== "전체" && !DOCTORS.includes(activeDoc)) activeDoc = "전체";
 
 const $chips = document.getElementById("docChips");
+const $label = document.getElementById("curDocLabel");
+
+function setActive(name) {
+  activeDoc = name;
+  try {
+    if (name === "전체") localStorage.removeItem(LS_KEY);
+    else localStorage.setItem(LS_KEY, name);
+  } catch(_) {}
+  renderChips();
+  updateBadge();
+}
+
 function renderChips() {
-  // "전체" + 모든 부원장
   const labels = ["전체"].concat(DOCTORS);
   $chips.querySelectorAll(".chip").forEach(n => n.remove());
   labels.forEach(name => {
     const b = document.createElement("button");
     b.className = "chip" + (name === activeDoc ? " active" : "");
     b.textContent = name;
-    b.addEventListener("click", () => {
-      activeDoc = name;
-      try { localStorage.setItem(LS_KEY, name); } catch(_) {}
-      renderChips();
-      updateLinks();
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      setActive(name);
     });
     $chips.appendChild(b);
   });
 }
-function updateLinks() {
-  const param = activeDoc === "전체" ? "" : "?doctor=" + encodeURIComponent(activeDoc);
-  document.getElementById("cardDash").href  = "https://sjc0310-a11y.github.io/haslla-dashboard/" + param;
-  document.getElementById("cardOne").href   = "/" + param;
-  document.getElementById("cardRetro").href = "/retro" + param;
+function updateBadge() {
+  $label.textContent = activeDoc;
+  $label.style.color = activeDoc === "전체" ? "#94a3b8" : "#38bdf8";
 }
-renderChips(); updateLinks();
+
+// 카드는 href 갱신에 의존하지 않고, 클릭 시점에 activeDoc 을 직접 읽어 location 이동.
+// (href 갱신 race 로 잘못된 원장 페이지로 이동하는 일을 원천 차단)
+function buildUrl(base) {
+  if (activeDoc === "전체") return base;
+  const sep = base.includes("?") ? "&" : "?";
+  return base + sep + "doctor=" + encodeURIComponent(activeDoc);
+}
+["cardDash","cardOne","cardRetro"].forEach(id => {
+  const a = document.getElementById(id);
+  if (!a) return;
+  a.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.location.href = buildUrl(a.dataset.base);
+  });
+});
+
+renderChips(); updateBadge();
 </script>
 </body>
 </html>
@@ -214,26 +246,42 @@ TOPNAV_HTML = """<nav style="background:rgba(15,23,42,0.85); border-bottom:1px s
                          padding:8px 16px; display:flex; gap:14px; align-items:center;
                          font-size:13px; flex-wrap:wrap; backdrop-filter:blur(6px); z-index:100;
                          position:relative;">
-  <a href="/home" style="text-decoration:none; color:#38bdf8; font-weight:700;">🏥 허브</a>
+  <a href="/home" style="text-decoration:none; color:#38bdf8; font-weight:700;" id="navHub" data-base="/home">🏥 허브</a>
   <span style="color:#475569;">·</span>
-  <a href="__DASHBOARD_URL__" style="text-decoration:none; color:#cbd5e1;" id="navDash">📊 경영</a>
-  <a href="/" style="text-decoration:none; color:#cbd5e1;" id="navOne">📋 1on1</a>
-  <a href="/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro">📝 회고</a>
+  <a href="__DASHBOARD_URL__" style="text-decoration:none; color:#cbd5e1;" id="navDash" data-base="__DASHBOARD_URL__">📊 경영</a>
+  <a href="/" style="text-decoration:none; color:#cbd5e1;" id="navOne" data-base="/">📋 1on1</a>
+  <a href="/retro" style="text-decoration:none; color:#cbd5e1;" id="navRetro" data-base="/retro">📝 회고</a>
   <span style="margin-left:auto; color:#475569; font-size:11px;" id="navDocBadge"></span>
 </nav>
 <script>
 (function() {
-  // ?doctor= 가 있으면 모든 nav 링크에 같이 전달
-  const q = new URLSearchParams(location.search).get("doctor");
-  if (q) {
-    try { localStorage.setItem("haslla_selected_doctor", q); } catch(_) {}
-    ["navDash","navOne","navRetro"].forEach(id => {
-      const a = document.getElementById(id);
-      if (a) { const sep = a.href.includes("?") ? "&" : "?"; a.href = a.href + sep + "doctor=" + encodeURIComponent(q); }
-    });
-    const b = document.getElementById("navDocBadge");
-    if (b) b.textContent = "선택된 부원장: " + q;
+  // 현재 페이지의 ?doctor= 또는 localStorage 에서 선택된 부원장을 모든 nav 링크에 클릭 시점 전파
+  function curDoc() {
+    const q = new URLSearchParams(location.search).get("doctor");
+    if (q) return q;
+    try { return localStorage.getItem("haslla_selected_doctor") || ""; } catch(_) { return ""; }
   }
+  const q0 = new URLSearchParams(location.search).get("doctor");
+  if (q0) { try { localStorage.setItem("haslla_selected_doctor", q0); } catch(_) {} }
+
+  ["navHub","navDash","navOne","navRetro"].forEach(id => {
+    const a = document.getElementById(id);
+    if (!a) return;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      const d = curDoc();
+      const base = a.dataset.base || a.getAttribute("href");
+      if (d && d !== "전체") {
+        const sep = base.includes("?") ? "&" : "?";
+        window.location.href = base + sep + "doctor=" + encodeURIComponent(d);
+      } else {
+        window.location.href = base;
+      }
+    });
+  });
+  const b = document.getElementById("navDocBadge");
+  const cur = curDoc();
+  if (b && cur && cur !== "전체") b.textContent = "선택된 부원장: " + cur;
 })();
 </script>
 """.replace("__DASHBOARD_URL__", DASHBOARD_URL)
