@@ -905,10 +905,16 @@ function renderTopicCards(doc, m) {
 function renderTopicCard(doc, m, p) {
   const learningsHtml = (p.learnings||[]).slice().reverse().map((l,i) => {
     const origIdx = p.learnings.length - 1 - i;
+    if (READONLY) {
+      return `<li>
+        <span class="learning-date">${l.date}</span>
+        <span class="learning-text">${escapeHtml(l.text||"")}</span>
+      </li>`;
+    }
     return `<li>
-      <span class="learning-date">${l.date}</span>
-      <span class="learning-text">${escapeHtml(l.text||"")}</span>
-      ${READONLY ? '' : `<button class="del-mini" data-act="del-learning" data-pid="${p.id}" data-i="${origIdx}">✕</button>`}
+      <input type="date" class="learning-date-edit" data-act="topic-learning-date" data-pid="${p.id}" data-i="${origIdx}" value="${l.date||""}">
+      <span class="learning-text" data-act="topic-learning-text" data-pid="${p.id}" data-i="${origIdx}" contenteditable="true" spellcheck="false">${escapeHtml(l.text||"")}</span>
+      <button class="del-mini" data-act="del-learning" data-pid="${p.id}" data-i="${origIdx}">✕</button>
     </li>`;
   }).join("") || `<li class="meta" style="border:none;">아직 누적된 인사이트 정리 없음</li>`;
 
@@ -1034,6 +1040,11 @@ function wireTopicCards(doc) {
         wireTopicCards(doc);
         renderBoard(doc);
       }
+      else if (act === "topic-learning-date") {
+        const i = parseInt(el.dataset.i);
+        if (p.learnings[i]) { p.learnings[i].date = el.value; markDirty(); renderBoard(doc); }
+      }
+      // topic-learning-text 는 click 으로 진입하지 않고 별도 keydown/blur 리스너로 처리 (아래)
       else if (act === "add-proj-support") {
         m.support = m.support || [];
         m.support.push(newSupport(pid));
@@ -1052,6 +1063,22 @@ function wireTopicCards(doc) {
         wireTopicCards(doc);
         renderBoard(doc);
       }
+    });
+  });
+  // topic-learning-text — contenteditable 텍스트 편집 (Enter/blur 저장, Esc 취소)
+  $c.querySelectorAll("[data-act=topic-learning-text]").forEach(span => {
+    const pid = span.dataset.pid;
+    const i = parseInt(span.dataset.i);
+    const p = getProject(doc, pid);
+    if (!p?.learnings?.[i]) return;
+    const commit = () => {
+      const v = span.innerText.trim();
+      if (v !== (p.learnings[i].text||"")) { p.learnings[i].text = v; markDirty(); renderBoard(doc); }
+    };
+    span.addEventListener("blur", commit);
+    span.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); span.blur(); }
+      if (e.key === "Escape") { span.innerText = p.learnings[i].text||""; span.blur(); }
     });
   });
   // add-learning Enter 처리
