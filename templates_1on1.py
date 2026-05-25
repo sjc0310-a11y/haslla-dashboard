@@ -778,7 +778,7 @@ function renderTopicCard(doc, m, p) {
       <span class="learning-text">${escapeHtml(l.text||"")}</span>
       ${READONLY ? '' : `<button class="del-mini" data-act="del-learning" data-pid="${p.id}" data-i="${origIdx}">✕</button>`}
     </li>`;
-  }).join("") || `<li class="meta" style="border:none;">아직 누적된 Learning 없음</li>`;
+  }).join("") || `<li class="meta" style="border:none;">아직 누적된 인사이트 정리 없음</li>`;
 
   const projSups = (m.support||[]).filter(s => s.project_id === p.id);
   const supsHtml = projSups.map(s => renderSupportLi(doc, m, s, p.id)).join("")
@@ -808,9 +808,9 @@ function renderTopicCard(doc, m, p) {
       </div>
       <div class="topic-card-body">
         <div>
-          <div class="sub-label">📚 누적 Learning <span style="font-weight:400; color:var(--muted);">(${(p.learnings||[]).length})</span></div>
+          <div class="sub-label">💡 누적 인사이트 정리 <span style="font-weight:400; color:var(--muted);">(${(p.learnings||[]).length})</span></div>
           <ul class="learnings-list">${learningsHtml}</ul>
-          ${READONLY ? '' : `<input class="add-learning" data-act="add-learning" data-pid="${p.id}" placeholder="이번 면담에서 배운 점 (Enter)">`}
+          ${READONLY ? '' : `<input class="add-learning" data-act="add-learning" data-pid="${p.id}" placeholder="이번 면담의 인사이트 정리 (Enter)">`}
         </div>
         <div>
           <div class="sub-label">🤝 Support 요청 <span style="font-weight:400; color:var(--muted);">(이번 면담)</span></div>
@@ -1098,7 +1098,7 @@ function renderKanbanCol(doc, status, title, cls, projects) {
 function renderKanbanCard(doc, p) {
   const recent = (p.learnings||[]).slice(-1)[0];
   const recentHtml = recent
-    ? `<div class="recent">📚 ${escapeHtml(recent.text)}</div>` : "";
+    ? `<div class="recent">💡 ${escapeHtml(recent.text)}</div>` : "";
   const dragAttr = READONLY ? '' : 'draggable="true"';
   return `
     <div class="kanban-card ${priorityClass(p.priority)}" data-pid="${p.id}" ${dragAttr}>
@@ -1106,7 +1106,7 @@ function renderKanbanCard(doc, p) {
       <div class="meta">
         <span class="pill ${(p.priority||"mid").toLowerCase()}">${p.priority||"Mid"}</span>
         ${p.mood ? `<span>${p.mood}</span>` : ''}
-        <span style="margin-left:auto;">L ${(p.learnings||[]).length} · S ${countSupportsForProject(doc, p.id)}</span>
+        <span style="margin-left:auto;">💡 ${(p.learnings||[]).length} · S ${countSupportsForProject(doc, p.id)}</span>
       </div>
       ${recentHtml}
     </div>`;
@@ -1152,7 +1152,7 @@ function openProjectModal(doc, pid) {
 
   const learnings = (p.learnings||[]).slice().sort((a,b) => (a.date||"").localeCompare(b.date||""));
   const learningsHtml = learnings.length === 0
-    ? `<div class="meta">아직 누적된 Learning 없음.</div>`
+    ? `<div class="meta">아직 누적된 인사이트 정리 없음.</div>`
     : `<ul class="learnings-list">${learnings.map(l => `
         <li><span class="learning-date">${l.date}</span>
         <span class="learning-text">${escapeHtml(l.text||"")}</span></li>`).join("")}</ul>`;
@@ -1181,12 +1181,12 @@ function openProjectModal(doc, pid) {
     <span class="pill ${(p.priority||"mid").toLowerCase()}">${p.priority||"Mid"}</span>
     ${p.mood ? `<span>${p.mood}</span>` : ''}
     ${p.created ? `<span>· 생성 ${p.created}</span>` : ''}
-    <span>· Learning ${(p.learnings||[]).length} · Support ${allSupports.length} · 면담 ${touchingMeetings.length}회</span>
+    <span>· 인사이트 ${(p.learnings||[]).length} · Support ${allSupports.length} · 면담 ${touchingMeetings.length}회</span>
     ${READONLY ? '' : `<button class="del-btn" data-pid="${p.id}" id="modalDeleteBtn" style="margin-left:auto;">🗑 프로젝트 삭제</button>`}
   `;
   document.getElementById("modalBody").innerHTML = `
     <div class="modal-section">
-      <h3>📚 모든 Learning</h3>
+      <h3>💡 모든 인사이트 정리</h3>
       ${learningsHtml}
     </div>
     <div class="modal-section">
@@ -1201,7 +1201,7 @@ function openProjectModal(doc, pid) {
   if (!READONLY) {
     const delBtn = document.getElementById("modalDeleteBtn");
     if (delBtn) delBtn.addEventListener("click", () => {
-      if (!confirm(`프로젝트 "${p.name}" 를 삭제할까요? 관련 Learning·Support 도 함께 삭제됩니다.`)) return;
+      if (!confirm(`프로젝트 "${p.name}" 를 삭제할까요? 관련 인사이트·Support 도 함께 삭제됩니다.`)) return;
       const arr = getProjects(doc);
       const i = arr.findIndex(x => x.id === pid);
       if (i >= 0) arr.splice(i, 1);
