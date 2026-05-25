@@ -123,7 +123,22 @@ main { padding:24px; max-width:1400px; margin:0 auto; }
                       font-size:13px; display:flex; gap:8px; align-items:flex-start; }
 .learnings-list li:last-child { border-bottom:none; }
 .learning-date { color:var(--muted); font-size:11px; min-width:62px; padding-top:2px; }
+.learning-date-edit { background:var(--panel3); color:var(--muted); border:1px solid var(--border);
+                       border-radius:4px; padding:2px 4px; font-size:11px; min-width:120px; }
 .learning-text { flex:1; line-height:1.45; }
+.learning-text[contenteditable=true] { outline:none; padding:2px 6px; border-radius:4px;
+                                         transition:background .15s; }
+.learning-text[contenteditable=true]:hover { background:var(--panel3); }
+.learning-text[contenteditable=true]:focus { background:var(--panel3); outline:1px solid var(--accent); }
+.modal-add-learning { display:flex; gap:8px; margin-top:12px; padding-top:12px;
+                       border-top:1px dashed var(--border); align-items:center; }
+.modal-add-learning input[type=date] { background:var(--panel3); color:var(--text);
+                                         border:1px solid var(--border); border-radius:4px;
+                                         padding:6px 8px; font-size:12px; }
+.modal-add-learning input[type=text]  { flex:1; background:var(--panel3); color:var(--text);
+                                         border:1px solid var(--border); border-radius:4px;
+                                         padding:7px 10px; font-size:13px; }
+.modal-add-learning input[type=text]:focus { outline:1px solid var(--accent); border-color:var(--accent); }
 .learning-meta { font-size:10px; color:var(--muted); }
 .del-mini { background:transparent; color:var(--bad); border:none; cursor:pointer;
              font-size:13px; padding:0 4px; opacity:.6; }
@@ -1165,12 +1180,30 @@ function openProjectModal(doc, pid) {
     (m.support||[]).forEach(s => { if (s.project_id === pid) allSupports.push({...s, _meetingDate: m.date, _meetingId: m.id}); });
   });
 
-  const learnings = (p.learnings||[]).slice().sort((a,b) => (a.date||"").localeCompare(b.date||""));
-  const learningsHtml = learnings.length === 0
-    ? `<div class="meta">아직 누적된 인사이트 정리 없음.</div>`
-    : `<ul class="learnings-list">${learnings.map(l => `
-        <li><span class="learning-date">${l.date}</span>
-        <span class="learning-text">${escapeHtml(l.text||"")}</span></li>`).join("")}</ul>`;
+  // 원본 인덱스를 보존해 정렬 — 편집·삭제 시 원본 배열에서 정확히 찾을 수 있도록
+  const learnings = (p.learnings||[]).map((l, i) => ({...l, _origIdx: i}))
+    .slice().sort((a,b) => (a.date||"").localeCompare(b.date||""));
+  const learningsHtml = `
+    <ul class="learnings-list" id="modalLearnings">
+      ${learnings.length === 0
+        ? `<li class="meta" style="border:none;">아직 누적된 인사이트 정리 없음.</li>`
+        : learnings.map(l => `
+          <li data-idx="${l._origIdx}">
+            ${READONLY
+              ? `<span class="learning-date">${l.date}</span>
+                 <span class="learning-text">${escapeHtml(l.text||"")}</span>`
+              : `<input type="date" class="learning-date-edit" data-act="edit-date" value="${l.date||""}">
+                 <span class="learning-text" data-act="edit-text" contenteditable="true" spellcheck="false">${escapeHtml(l.text||"")}</span>
+                 <button class="del-mini" data-act="del" title="삭제">✕</button>`}
+          </li>`).join("")}
+    </ul>
+    ${READONLY ? '' : `
+      <div class="modal-add-learning">
+        <input type="date" id="modalNewLearningDate" value="${todayStr()}">
+        <input type="text" id="modalNewLearningText" placeholder="새 인사이트 정리 한 줄 (Enter)">
+        <button id="modalAddLearningBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
+      </div>`}
+  `;
   const supsHtml = allSupports.length === 0
     ? `<div class="meta">관련 Support 없음.</div>`
     : `<ul class="item-list">${allSupports.map(s => `
@@ -1266,6 +1299,53 @@ function openProjectModal(doc, pid) {
         const $tc = document.getElementById(`topicCards-${doc}`);
         if ($tc) { $tc.innerHTML = renderTopicCards(doc, m); wireTopicCards(doc); }
       }
+    });
+
+    // ── 인사이트 정리: 모달에서 추가·수정·삭제 ──
+    const refreshModal = () => openProjectModal(doc, pid);
+    const $list = document.getElementById("modalLearnings");
+    if ($list) {
+      $list.querySelectorAll("li[data-idx]").forEach(li => {
+        const i = parseInt(li.dataset.idx);
+        const target = p.learnings[i];
+        if (!target) return;
+        const $date = li.querySelector("[data-act=edit-date]");
+        const $text = li.querySelector("[data-act=edit-text]");
+        const $del  = li.querySelector("[data-act=del]");
+        if ($date) $date.addEventListener("change", () => {
+          target.date = $date.value; markDirty(); renderBoard(doc);
+        });
+        if ($text) {
+          const commitText = () => {
+            const v = $text.innerText.trim();
+            if (v !== (target.text||"")) { target.text = v; markDirty(); renderBoard(doc); }
+          };
+          $text.addEventListener("blur", commitText);
+          $text.addEventListener("keydown", e => {
+            if (e.key === "Enter") { e.preventDefault(); $text.blur(); }
+            if (e.key === "Escape") { $text.innerText = target.text||""; $text.blur(); }
+          });
+        }
+        if ($del) $del.addEventListener("click", () => {
+          if (!confirm("이 인사이트 정리를 삭제할까요?")) return;
+          p.learnings.splice(i, 1);
+          markDirty(); renderBoard(doc); refreshModal();
+        });
+      });
+    }
+    const $newText = document.getElementById("modalNewLearningText");
+    const $newDate = document.getElementById("modalNewLearningDate");
+    const $addBtn  = document.getElementById("modalAddLearningBtn");
+    const addNew = () => {
+      const v = ($newText?.value || "").trim();
+      if (!v) return;
+      const date = $newDate?.value || todayStr();
+      p.learnings.push({ date, text: v, meeting_id: null });
+      markDirty(); renderBoard(doc); refreshModal();
+    };
+    if ($addBtn)  $addBtn.addEventListener("click", addNew);
+    if ($newText) $newText.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); addNew(); }
     });
 
     const delBtn = document.getElementById("modalDeleteBtn");
