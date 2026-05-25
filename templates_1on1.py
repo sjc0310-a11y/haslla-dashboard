@@ -226,7 +226,14 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .modal-close:hover { color:var(--text); }
 .modal-title { font-size:22px; font-weight:700; margin:0 24px 12px 0; }
 .modal-meta { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; font-size:12px;
-              color:var(--muted); }
+              color:var(--muted); align-items:center; }
+.modal-meta-field { display:inline-flex; align-items:center; gap:6px;
+                     background:var(--panel2); border:1px solid var(--border);
+                     border-radius:6px; padding:4px 8px; font-size:12px; }
+.modal-meta-field span { color:var(--muted); font-weight:500; }
+.modal-meta-field select { background:var(--panel3); color:var(--text);
+                            border:1px solid var(--border2); border-radius:4px;
+                            padding:3px 6px; font-size:12px; cursor:pointer; }
 .modal-section { margin-bottom:22px; }
 .modal-section h3 { font-size:14px; color:var(--accent); margin:0 0 10px;
                      padding-bottom:6px; border-bottom:1px solid var(--border); }
@@ -1176,10 +1183,30 @@ function openProjectModal(doc, pid) {
 
   const $m = document.getElementById("modal");
   document.getElementById("modalTitle").innerHTML = escapeHtml(p.name || "(이름 없음)");
-  document.getElementById("modalMeta").innerHTML = `
+
+  // 편집 모드: pill 대신 셀렉트로 표시 → 모달에서 바로 상태·우선순위·Mood 변경
+  const statusOpts = ["Inbox","In Progress","Done"].map(v =>
+    `<option value="${v}" ${p.status===v?"selected":""}>${v}</option>`).join("");
+  const prioOpts   = ["High","Mid","Low"].map(v =>
+    `<option value="${v}" ${p.priority===v?"selected":""}>${v}</option>`).join("");
+  const moodOpts   = [["","Mood —"],["😎","😎 좋음"],["😀","😀 보통"],["😇","😇 어려움"]].map(([v,t]) =>
+    `<option value="${v}" ${p.mood===v?"selected":""}>${t}</option>`).join("");
+
+  const metaEditable = `
+    <label class="modal-meta-field"><span>상태</span>
+      <select id="modalStatus">${statusOpts}</select></label>
+    <label class="modal-meta-field"><span>우선순위</span>
+      <select id="modalPriority">${prioOpts}</select></label>
+    <label class="modal-meta-field"><span>Mood</span>
+      <select id="modalMood">${moodOpts}</select></label>
+  `;
+  const metaReadonly = `
     <span class="pill ${statusPillClass(p.status)}">${p.status}</span>
     <span class="pill ${(p.priority||"mid").toLowerCase()}">${p.priority||"Mid"}</span>
     ${p.mood ? `<span>${p.mood}</span>` : ''}
+  `;
+  document.getElementById("modalMeta").innerHTML = `
+    ${READONLY ? metaReadonly : metaEditable}
     ${p.created ? `<span>· 생성 ${p.created}</span>` : ''}
     <span>· 인사이트 ${(p.learnings||[]).length} · Support ${allSupports.length} · 면담 ${touchingMeetings.length}회</span>
     ${READONLY ? '' : `<button class="del-btn" data-pid="${p.id}" id="modalDeleteBtn" style="margin-left:auto;">🗑 프로젝트 삭제</button>`}
@@ -1199,6 +1226,40 @@ function openProjectModal(doc, pid) {
     </div>
   `;
   if (!READONLY) {
+    // 상태·우선순위·Mood 셀렉트 — 변경 즉시 저장 + 보드 + 토픽 칩 갱신
+    const $st = document.getElementById("modalStatus");
+    const $pr = document.getElementById("modalPriority");
+    const $md = document.getElementById("modalMood");
+    if ($st) $st.addEventListener("change", () => {
+      p.status = $st.value; markDirty();
+      renderBoard(doc);
+      const m = currentMeeting(doc);
+      if (m) {
+        const $tp = document.getElementById(`topicPicker-${doc}`);
+        if ($tp) { $tp.innerHTML = renderTopicPicker(doc, m); wireTopicPicker(doc); }
+        const $tc = document.getElementById(`topicCards-${doc}`);
+        if ($tc && m.topic_projects.includes(pid)) { $tc.innerHTML = renderTopicCards(doc, m); wireTopicCards(doc); }
+      }
+    });
+    if ($pr) $pr.addEventListener("change", () => {
+      p.priority = $pr.value; markDirty();
+      renderBoard(doc);
+      const m = currentMeeting(doc);
+      if (m && m.topic_projects.includes(pid)) {
+        const $tc = document.getElementById(`topicCards-${doc}`);
+        if ($tc) { $tc.innerHTML = renderTopicCards(doc, m); wireTopicCards(doc); }
+      }
+    });
+    if ($md) $md.addEventListener("change", () => {
+      p.mood = $md.value; markDirty();
+      renderBoard(doc);
+      const m = currentMeeting(doc);
+      if (m && m.topic_projects.includes(pid)) {
+        const $tc = document.getElementById(`topicCards-${doc}`);
+        if ($tc) { $tc.innerHTML = renderTopicCards(doc, m); wireTopicCards(doc); }
+      }
+    });
+
     const delBtn = document.getElementById("modalDeleteBtn");
     if (delBtn) delBtn.addEventListener("click", () => {
       if (!confirm(`프로젝트 "${p.name}" 를 삭제할까요? 관련 인사이트·Support 도 함께 삭제됩니다.`)) return;
