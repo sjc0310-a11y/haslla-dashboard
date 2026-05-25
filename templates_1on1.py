@@ -925,7 +925,7 @@ function wireTopicCards(doc) {
       const sid = el.dataset.sid;
       const act = el.dataset.act;
       const p = pid ? getProject(doc, pid) : null;
-      if (act === "proj-name")   { p.name = el.value; markDirty(); }
+      if (act === "proj-name")   { p.name = el.value; markDirty(); renderBoard(doc); }
       else if (act === "proj-status") { p.status = el.value; markDirty(); renderBoard(doc); document.getElementById(`topicPicker-${doc}`).innerHTML = renderTopicPicker(doc, m); wireTopicPicker(doc); }
       else if (act === "proj-prio")   { p.priority = el.value; markDirty(); renderBoard(doc); }
       else if (act === "proj-mood")   { p.mood = el.value; markDirty(); renderBoard(doc); }
@@ -947,6 +947,7 @@ function wireTopicCards(doc) {
         markDirty();
         document.getElementById(`topicCards-${doc}`).innerHTML = renderTopicCards(doc, m);
         wireTopicCards(doc);
+        renderBoard(doc);
       }
       else if (act === "add-proj-support") {
         m.support = m.support || [];
@@ -954,6 +955,7 @@ function wireTopicCards(doc) {
         markDirty();
         document.getElementById(`topicCards-${doc}`).innerHTML = renderTopicCards(doc, m);
         wireTopicCards(doc);
+        renderBoard(doc);
       }
       else if (act === "sup-rev")  { const s = m.support.find(s => s.id === sid); if(s){ s.reviewed = el.checked; markDirty(); } }
       else if (act === "sup-type") { const s = m.support.find(s => s.id === sid); if(s){ s.type = el.value; markDirty(); } }
@@ -963,6 +965,7 @@ function wireTopicCards(doc) {
         markDirty();
         document.getElementById(`topicCards-${doc}`).innerHTML = renderTopicCards(doc, m);
         wireTopicCards(doc);
+        renderBoard(doc);
       }
     });
   });
@@ -980,6 +983,7 @@ function wireTopicCards(doc) {
       markDirty();
       document.getElementById(`topicCards-${doc}`).innerHTML = renderTopicCards(doc, m);
       wireTopicCards(doc);
+      renderBoard(doc);
     });
   });
 }
