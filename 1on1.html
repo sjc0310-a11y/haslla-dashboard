@@ -135,6 +135,20 @@ main { padding:24px; max-width:1400px; margin:0 auto; }
                                          border:1px solid var(--border); border-radius:4px;
                                          padding:7px 10px; font-size:13px; }
 .modal-add-learning input[type=text]:focus { outline:1px solid var(--accent); border-color:var(--accent); }
+.modal-add-support { display:flex; gap:8px; margin-top:12px; padding-top:12px;
+                      border-top:1px dashed var(--border); align-items:center; }
+.modal-add-support select, .modal-add-support input[type=text] {
+  background:var(--panel3); color:var(--text);
+  border:1px solid var(--border); border-radius:4px;
+  padding:6px 8px; font-size:13px;
+}
+.modal-add-support input[type=text] { flex:1; }
+.modal-add-support input[type=text]:focus { outline:1px solid var(--accent); border-color:var(--accent); }
+.modal-title [contenteditable=true] { outline:none; padding:2px 6px; border-radius:4px;
+                                       transition:background .15s; }
+.modal-title [contenteditable=true]:hover { background:var(--panel2); }
+.modal-title [contenteditable=true]:focus { background:var(--panel2);
+                                              outline:1px solid var(--accent); }
 .learning-meta { font-size:10px; color:var(--muted); }
 .del-mini { background:transparent; color:var(--bad); border:none; cursor:pointer;
              font-size:13px; padding:0 4px; opacity:.6; }
@@ -1367,26 +1381,67 @@ function openProjectModal(doc, pid) {
         <button id="modalAddLearningBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
       </div>`}
   `;
-  const supsHtml = allSupports.length === 0
-    ? `<div class="meta">관련 Support 없음.</div>`
-    : `<ul class="item-list">${allSupports.map(s => `
-        <li>
-          ${s.reviewed?"✅":"⬜"}
-          <span class="meta" style="min-width:90px;">${s._meetingDate}</span>
-          <span class="pill ${(s.type||"").toLowerCase()}" style="background:var(--panel3); color:var(--text);">${s.type||""}</span>
-          <span style="flex:1;">${escapeHtml(s.need||"")}</span>
-        </li>`).join("")}</ul>`;
+  // Support 섹션 — 편집 가능 (체크 / type / 내용 / 삭제 / 추가)
+  const typeVals = ["Alignment","Decision","Help"];
+  const supsHtml = `
+    <ul class="item-list" id="modalSupports">
+      ${allSupports.length === 0
+        ? `<li class="meta" style="border:none;">관련 Support 없음.</li>`
+        : allSupports.map(s => {
+            const tOpts = typeVals.map(v => `<option value="${v}" ${s.type===v?"selected":""}>${v}</option>`).join("");
+            if (READONLY) {
+              return `<li>
+                ${s.reviewed?"✅":"⬜"}
+                <span class="meta" style="min-width:90px;">${s._meetingDate}</span>
+                <span class="pill" style="background:var(--panel3); color:var(--text);">${s.type||""}</span>
+                <span style="flex:1;">${escapeHtml(s.need||"")}</span>
+              </li>`;
+            }
+            return `<li data-sid="${s.id}" data-mid="${s._meetingId}">
+              <input type="checkbox" data-act="msup-rev" ${s.reviewed?"checked":""} title="완료 체크">
+              <span class="meta" style="min-width:90px;">${s._meetingDate}</span>
+              <select data-act="msup-type" class="type-select">${tOpts}</select>
+              <input type="text" data-act="msup-need" value="${escapeHtml(s.need||"")}" placeholder="필요한 지원 사항" style="flex:1; background:var(--panel3); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:4px 8px; font-size:13px;">
+              <button class="del-mini" data-act="msup-del" title="삭제">✕</button>
+            </li>`;
+          }).join("")}
+    </ul>
+    ${READONLY ? '' : `
+      <div class="modal-add-support">
+        <select id="modalNewSupType">${typeVals.map(v => `<option value="${v}">${v}</option>`).join("")}</select>
+        <input type="text" id="modalNewSupNeed" placeholder="새 Support 내용 (Enter — 진행 중 면담에 추가)">
+        <button id="modalAddSupBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
+      </div>`}
+  `;
+  // 다뤄진 면담 섹션 — 클릭하면 그 면담으로 이동, 무드·완료·날짜 인라인 편집
+  const moodOptionsM = [["","—"],["😎","😎"],["😀","😀"],["😇","😇"]];
   const meetingsHtml = touchingMeetings.length === 0
     ? `<div class="meta">이 프로젝트를 다룬 면담 없음.</div>`
-    : `<ul class="item-list">${touchingMeetings.map(m => `
-        <li>
-          <span class="meta" style="min-width:90px;">${m.date}</span>
-          ${m.mood ? `<span>${m.mood}</span>` : ''}
-          <span style="flex:1; color:var(--muted);">${m.done?"✅ 완료":"📝 진행"}${(m.work||"").length>0?" · Work 작성됨":""}${(m.career||"").length>0?" · Career 작성됨":""}</span>
-        </li>`).join("")}</ul>`;
+    : `<ul class="item-list" id="modalMeetings">${touchingMeetings.map(m => {
+        if (READONLY) {
+          return `<li>
+            <span class="meta" style="min-width:90px;">${m.date}</span>
+            ${m.mood ? `<span>${m.mood}</span>` : ''}
+            <span style="flex:1; color:var(--muted);">${m.done?"✅ 완료":"📝 진행"}${(m.work||"").length>0?" · Work 작성됨":""}${(m.career||"").length>0?" · Career 작성됨":""}</span>
+          </li>`;
+        }
+        const moodOpts = moodOptionsM.map(([v,t]) => `<option value="${v}" ${m.mood===v?"selected":""}>${t}</option>`).join("");
+        return `<li data-mid="${m.id}">
+          <input type="date" data-act="mmt-date" value="${m.date||""}" style="background:var(--panel3); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:3px 6px; font-size:12px;">
+          <select data-act="mmt-mood" style="background:var(--panel3); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:3px 6px; font-size:13px;">${moodOpts}</select>
+          <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--muted);">
+            <input type="checkbox" data-act="mmt-done" ${m.done?"checked":""}> 완료
+          </label>
+          <span style="flex:1; color:var(--muted); font-size:11px;">${(m.work||"").length>0?"Work 작성됨":""}${(m.career||"").length>0?" · Career 작성됨":""}</span>
+          <button class="add-btn" data-act="mmt-goto" style="margin-top:0; font-size:11px; padding:4px 10px;">↗ 이 면담으로</button>
+        </li>`;
+      }).join("")}</ul>`;
 
   const $m = document.getElementById("modal");
-  document.getElementById("modalTitle").innerHTML = escapeHtml(p.name || "(이름 없음)");
+  // 제목: 편집 모드에서는 contenteditable
+  document.getElementById("modalTitle").innerHTML = READONLY
+    ? escapeHtml(p.name || "(이름 없음)")
+    : `<span id="modalNameEdit" data-act="modal-name" contenteditable="true" spellcheck="false" title="클릭해서 이름 수정">${escapeHtml(p.name || "(이름 없음)")}</span>`;
 
   // 편집 모드: pill 대신 셀렉트로 표시 → 모달에서 바로 상태·우선순위·Mood 변경
   const statusOpts = ["Inbox","In Progress","Done"].map(v =>
@@ -1510,6 +1565,85 @@ function openProjectModal(doc, pid) {
     if ($newText) $newText.addEventListener("keydown", e => {
       if (e.key === "Enter") { e.preventDefault(); addNew(); }
     });
+
+    // ── 제목 인라인 편집 ──
+    const $name = document.getElementById("modalNameEdit");
+    if ($name) {
+      const commitName = () => {
+        const v = $name.innerText.trim();
+        if (v && v !== (p.name||"")) { p.name = v; markDirty(); renderBoard(doc); renderMeeting(doc); }
+      };
+      $name.addEventListener("blur", commitName);
+      $name.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); $name.blur(); }
+        if (e.key === "Escape") { $name.innerText = p.name||""; $name.blur(); }
+      });
+    }
+
+    // ── Support 섹션 인라인 편집 ──
+    const $sups = document.getElementById("modalSupports");
+    if ($sups) {
+      $sups.querySelectorAll("li[data-sid]").forEach(li => {
+        const sid = li.dataset.sid;
+        const mid = li.dataset.mid;
+        const meeting = notes.find(n => n.id === mid);
+        const s = meeting?.support?.find(x => x.id === sid);
+        if (!s) return;
+        const $rev  = li.querySelector("[data-act=msup-rev]");
+        const $type = li.querySelector("[data-act=msup-type]");
+        const $need = li.querySelector("[data-act=msup-need]");
+        const $del  = li.querySelector("[data-act=msup-del]");
+        if ($rev)  $rev.addEventListener("change",  () => { s.reviewed = $rev.checked; markDirty(); });
+        if ($type) $type.addEventListener("change", () => { s.type     = $type.value;   markDirty(); });
+        if ($need) $need.addEventListener("input",  () => { s.need     = $need.value;   markDirty(); });
+        if ($del)  $del.addEventListener("click",   () => {
+          if (!confirm("이 Support 를 삭제할까요?")) return;
+          meeting.support = (meeting.support||[]).filter(x => x.id !== sid);
+          markDirty(); renderBoard(doc); renderMeeting(doc); refreshModal();
+        });
+      });
+    }
+    // Support 추가 — 현재 진행 중 면담에 묶음
+    const $newSupType = document.getElementById("modalNewSupType");
+    const $newSupNeed = document.getElementById("modalNewSupNeed");
+    const $addSupBtn  = document.getElementById("modalAddSupBtn");
+    const addSup = () => {
+      const v = ($newSupNeed?.value || "").trim();
+      if (!v) return;
+      const meeting = currentMeeting(doc);
+      if (!meeting) { alert("면담이 없어 Support 를 추가할 수 없습니다. 먼저 '+ 새 면담' 으로 회차를 만드세요."); return; }
+      meeting.support = meeting.support || [];
+      meeting.support.push({ id:"s_"+Math.random().toString(16).slice(2,10),
+        type: $newSupType?.value || "Help", need: v, reviewed:false, project_id: pid });
+      markDirty(); renderBoard(doc); renderMeeting(doc); refreshModal();
+    };
+    if ($addSupBtn)  $addSupBtn.addEventListener("click", addSup);
+    if ($newSupNeed) $newSupNeed.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); addSup(); }
+    });
+
+    // ── 다뤄진 면담: 무드·완료·날짜 인라인 편집 + 이동 ──
+    const $mlist = document.getElementById("modalMeetings");
+    if ($mlist) {
+      $mlist.querySelectorAll("li[data-mid]").forEach(li => {
+        const mid = li.dataset.mid;
+        const meeting = notes.find(n => n.id === mid);
+        if (!meeting) return;
+        const $date = li.querySelector("[data-act=mmt-date]");
+        const $mood = li.querySelector("[data-act=mmt-mood]");
+        const $done = li.querySelector("[data-act=mmt-done]");
+        const $go   = li.querySelector("[data-act=mmt-goto]");
+        if ($date) $date.addEventListener("change", () => { meeting.date = $date.value; meeting.month = ($date.value||"").slice(0,7); markDirty(); renderMeeting(doc); });
+        if ($mood) $mood.addEventListener("change", () => { meeting.mood = $mood.value; markDirty(); renderMeeting(doc); });
+        if ($done) $done.addEventListener("change", () => { meeting.done = $done.checked; markDirty(); renderMeeting(doc); });
+        if ($go)   $go.addEventListener("click", () => {
+          const i = notes.findIndex(n => n.id === mid);
+          if (i >= 0) { currentIdx[doc] = i; renderMeeting(doc); renderFollowup(doc); renderHistory(doc); }
+          closeModal();
+          window.scrollTo({ top: document.getElementById(`meeting-${doc}`).offsetTop - 20, behavior: "smooth" });
+        });
+      });
+    }
 
     const delBtn = document.getElementById("modalDeleteBtn");
     if (delBtn) delBtn.addEventListener("click", () => {
