@@ -180,9 +180,12 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .kanban-col-header.done   { color:#86efac; }
 .kanban-cards { display:flex; flex-direction:column; gap:8px; }
 .kanban-card { background:var(--panel3); border-radius:6px; padding:10px;
-                cursor:pointer; border-left:3px solid transparent;
-                transition:all .15s; }
+                cursor:grab; border-left:3px solid transparent;
+                transition:all .15s; user-select:none; }
 .kanban-card:hover { background:#3f4d63; border-left-color:var(--accent); }
+.kanban-card:active { cursor:grabbing; }
+.kanban-card.dragging { opacity:.4; }
+.kanban-col.drop-target { background:#334155; outline:2px dashed var(--accent); outline-offset:-4px; }
 .kanban-card.priority-high { border-left-color:var(--bad); }
 .kanban-card.priority-mid  { border-left-color:var(--warn); }
 .kanban-card.priority-low  { border-left-color:#64748b; }
@@ -1076,17 +1079,64 @@ function renderBoard(doc) {
   const $sec = document.getElementById(`board-${doc}`);
   $sec.innerHTML = `
     <h2>📋 프로젝트 보드 <span class="badge">${projects.length}건</span>
-      <span class="hint">카드 클릭으로 전체 history 보기</span></h2>
+      <span class="hint">${READONLY ? "카드 클릭으로 전체 history 보기" : "카드를 다른 칸으로 드래그해 상태 변경 · 클릭은 history 보기"}</span></h2>
     <div class="kanban">
       ${renderKanbanCol(doc, "Inbox", "📥 Inbox", "inbox", cols["Inbox"])}
       ${renderKanbanCol(doc, "In Progress", "🚀 In Progress", "prog", cols["In Progress"])}
       ${renderKanbanCol(doc, "Done", "✅ Done", "done", cols["Done"])}
     </div>
   `;
+  // 클릭 → 모달. 단, 드래그 직후의 click 이벤트는 무시 (move-then-modal 방지)
+  let suppressClickUntil = 0;
   $sec.querySelectorAll(".kanban-card").forEach(card => {
-    card.addEventListener("click", () => openProjectModal(doc, card.dataset.pid));
+    card.addEventListener("click", (e) => {
+      if (Date.now() < suppressClickUntil) return;
+      openProjectModal(doc, card.dataset.pid);
+    });
   });
+
   if (!READONLY) {
+    // ── 드래그&드롭으로 상태 변경 ──
+    $sec.querySelectorAll(".kanban-card").forEach(card => {
+      card.addEventListener("dragstart", (e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", card.dataset.pid);
+        card.classList.add("dragging");
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+        suppressClickUntil = Date.now() + 250;   // 드래그 종료 직후 click 차단
+      });
+    });
+    $sec.querySelectorAll(".kanban-col").forEach(col => {
+      col.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        col.classList.add("drop-target");
+      });
+      col.addEventListener("dragleave", (e) => {
+        if (!col.contains(e.relatedTarget)) col.classList.remove("drop-target");
+      });
+      col.addEventListener("drop", (e) => {
+        e.preventDefault();
+        col.classList.remove("drop-target");
+        const pid = e.dataTransfer.getData("text/plain");
+        const newStatus = col.dataset.status;
+        if (!pid || !newStatus) return;
+        const p = getProject(doc, pid);
+        if (!p || p.status === newStatus) return;
+        p.status = newStatus;
+        markDirty();
+        renderBoard(doc);
+        // 토픽 칩 표시(Done 흐림 처리 등) 갱신
+        const m = currentMeeting(doc);
+        if (m) {
+          const $tp = document.getElementById(`topicPicker-${doc}`);
+          if ($tp) { $tp.innerHTML = renderTopicPicker(doc, m); wireTopicPicker(doc); }
+        }
+      });
+    });
+
     $sec.querySelectorAll(".add-card-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const projects = getProjects(doc);
@@ -1109,7 +1159,7 @@ function renderKanbanCol(doc, status, title, cls, projects) {
   const addBtn = READONLY ? '' :
     `<button class="add-card-btn" data-status="${status}">+ 새 프로젝트</button>`;
   return `
-    <div class="kanban-col">
+    <div class="kanban-col" data-status="${status}">
       <div class="kanban-col-header ${cls}">${title} <span>${projects.length}</span></div>
       <div class="kanban-cards">${cards}</div>
       ${addBtn}
@@ -1120,8 +1170,9 @@ function renderKanbanCard(doc, p) {
   const recent = (p.learnings||[]).slice(-1)[0];
   const recentHtml = recent
     ? `<div class="recent">📚 ${escapeHtml(recent.text)}</div>` : "";
+  const dragAttr = READONLY ? '' : 'draggable="true"';
   return `
-    <div class="kanban-card ${priorityClass(p.priority)}" data-pid="${p.id}">
+    <div class="kanban-card ${priorityClass(p.priority)}" data-pid="${p.id}" ${dragAttr}>
       <div class="name">${escapeHtml(p.name || "(이름 없음)")}</div>
       <div class="meta">
         <span class="pill ${(p.priority||"mid").toLowerCase()}">${p.priority||"Mid"}</span>
