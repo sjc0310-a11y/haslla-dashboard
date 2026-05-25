@@ -186,9 +186,13 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .kanban-card:active { cursor:grabbing; }
 .kanban-card.dragging { opacity:.4; }
 .kanban-col.drop-target { background:#334155; outline:2px dashed var(--accent); outline-offset:-4px; }
-.kanban-card.priority-high { border-left-color:var(--bad); }
-.kanban-card.priority-mid  { border-left-color:var(--warn); }
-.kanban-card.priority-low  { border-left-color:#64748b; }
+.kanban-card { border-left-width:5px; }
+.kanban-card.priority-high { border-left-color:#dc2626;
+                              box-shadow:inset 3px 0 0 rgba(220,38,38,0.4); }
+.kanban-card.priority-mid  { border-left-color:#f59e0b;
+                              box-shadow:inset 3px 0 0 rgba(245,158,11,0.4); }
+.kanban-card.priority-low  { border-left-color:#3b82f6;
+                              box-shadow:inset 3px 0 0 rgba(59,130,246,0.4); }
 .kanban-card .name { font-weight:600; font-size:14px; margin-bottom:6px; }
 .kanban-card .meta { font-size:11px; color:var(--muted); display:flex; gap:8px; align-items:center; }
 .kanban-card .recent { margin-top:8px; padding:6px 8px; background:rgba(0,0,0,.2);
@@ -201,10 +205,14 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .kanban-empty { font-size:12px; color:var(--muted); padding:8px 4px; }
 
 /* Pills */
-.pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
-.pill.high { background:#7f1d1d; color:#fecaca; }
-.pill.mid  { background:#78350f; color:#fed7aa; }
-.pill.low  { background:#1e3a8a; color:#bfdbfe; }
+.pill { display:inline-block; padding:3px 10px; border-radius:10px;
+        font-size:11px; font-weight:700; letter-spacing:0.2px; }
+.pill.high { background:#dc2626; color:#fff;
+              box-shadow:0 0 0 1px #fca5a5, 0 1px 4px rgba(220,38,38,0.5); }
+.pill.mid  { background:#f59e0b; color:#1c1917;
+              box-shadow:0 0 0 1px #fcd34d, 0 1px 4px rgba(245,158,11,0.4); }
+.pill.low  { background:#3b82f6; color:#fff;
+              box-shadow:0 0 0 1px #93c5fd, 0 1px 4px rgba(59,130,246,0.4); }
 .pill.done { background:#064e3b; color:#86efac; }
 .pill.inprogress { background:#1e3a8a; color:#bfdbfe; }
 .pill.inbox { background:#374151; color:#d1d5db; }
