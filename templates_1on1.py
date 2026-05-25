@@ -212,8 +212,25 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
                               box-shadow:inset 3px 0 0 rgba(245,158,11,0.4); }
 .kanban-card.priority-low  { border-left-color:#3b82f6;
                               box-shadow:inset 3px 0 0 rgba(59,130,246,0.4); }
-.kanban-card .name { font-weight:600; font-size:14px; margin-bottom:6px; }
+.kanban-card .name { font-weight:600; font-size:14px; margin-bottom:6px;
+                      padding:2px 4px; border-radius:4px; outline:none;
+                      cursor:text; transition:background .15s; }
+.kanban-card .name[contenteditable=true]:hover { background:rgba(255,255,255,0.05); }
+.kanban-card .name[contenteditable=true]:focus { background:var(--panel2);
+                                                  outline:1px solid var(--accent); }
 .kanban-card .meta { font-size:11px; color:var(--muted); display:flex; gap:8px; align-items:center; }
+.card-prio-select, .card-mood-select {
+  background:var(--panel2); color:var(--text); border:1px solid var(--border);
+  border-radius:10px; padding:2px 6px; font-size:11px; font-weight:700;
+  cursor:pointer; appearance:none; padding-right:18px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'><polygon points='0,2 8,2 4,6' fill='%2394a3b8'/></svg>");
+  background-repeat:no-repeat; background-position:right 4px center;
+}
+.card-prio-select.high { background-color:#dc2626; color:#fff; border-color:#fca5a5; }
+.card-prio-select.mid  { background-color:#f59e0b; color:#1c1917; border-color:#fcd34d; }
+.card-prio-select.low  { background-color:#3b82f6; color:#fff; border-color:#93c5fd; }
+.card-mood-select { font-size:13px; }
+.card-prio-select:focus, .card-mood-select:focus { outline:1px solid var(--accent); }
 .kanban-card .recent { margin-top:8px; padding:6px 8px; background:rgba(0,0,0,.2);
                         border-radius:4px; font-size:11px; color:var(--muted);
                         white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1050,14 +1067,66 @@ function renderBoard(doc) {
   $sec.querySelectorAll(".kanban-card").forEach(card => {
     card.addEventListener("click", (e) => {
       if (Date.now() < suppressClickUntil) return;
+      // 인라인 편집 컨트롤·name 영역 클릭 시엔 모달 열지 않음
+      if (e.target.closest("[data-act]")) return;
       openProjectModal(doc, card.dataset.pid);
     });
   });
 
   if (!READONLY) {
+    // ── 카드 인라인 편집: name(contenteditable) / priority(select) / mood(select) ──
+    $sec.querySelectorAll(".kanban-card").forEach(card => {
+      const pid = card.dataset.pid;
+      const $name = card.querySelector("[data-act=card-name]");
+      const $prio = card.querySelector("[data-act=card-prio]");
+      const $mood = card.querySelector("[data-act=card-mood]");
+
+      if ($name) {
+        // 편집 중에는 카드가 드래그되지 않도록
+        $name.addEventListener("focus", () => { card.draggable = false; });
+        $name.addEventListener("blur",  () => {
+          card.draggable = true;
+          const v = $name.innerText.trim();
+          const p = getProject(doc, pid);
+          if (p && v !== (p.name||"")) { p.name = v; markDirty(); renderBoard(doc); renderMeeting(doc); }
+        });
+        $name.addEventListener("keydown", e => {
+          if (e.key === "Enter") { e.preventDefault(); $name.blur(); }
+          if (e.key === "Escape") { const p = getProject(doc, pid); $name.innerText = p?.name||""; $name.blur(); }
+        });
+        // 클릭 자체는 모달 열지 않도록 (이미 closest 처리되지만 안전망)
+        $name.addEventListener("click", e => e.stopPropagation());
+      }
+      if ($prio) {
+        // select 자체가 드래그 핸들과 충돌하지 않도록 mousedown 시 카드 드래그 끄기
+        $prio.addEventListener("mousedown", () => { card.draggable = false; });
+        $prio.addEventListener("blur",      () => { card.draggable = true; });
+        $prio.addEventListener("change", (e) => {
+          e.stopPropagation();
+          const p = getProject(doc, pid);
+          if (!p) return;
+          p.priority = $prio.value; markDirty(); renderBoard(doc); renderMeeting(doc);
+        });
+        $prio.addEventListener("click", e => e.stopPropagation());
+      }
+      if ($mood) {
+        $mood.addEventListener("mousedown", () => { card.draggable = false; });
+        $mood.addEventListener("blur",      () => { card.draggable = true; });
+        $mood.addEventListener("change", (e) => {
+          e.stopPropagation();
+          const p = getProject(doc, pid);
+          if (!p) return;
+          p.mood = $mood.value; markDirty(); renderBoard(doc); renderMeeting(doc);
+        });
+        $mood.addEventListener("click", e => e.stopPropagation());
+      }
+    });
+
     // ── 드래그&드롭으로 상태 변경 ──
     $sec.querySelectorAll(".kanban-card").forEach(card => {
       card.addEventListener("dragstart", (e) => {
+        // 인라인 컨트롤에서 시작한 드래그는 무시
+        if (e.target.closest("[data-act]")) { e.preventDefault(); return; }
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", card.dataset.pid);
         card.classList.add("dragging");
@@ -1130,12 +1199,31 @@ function renderKanbanCard(doc, p) {
   const recentHtml = recent
     ? `<div class="recent">💡 ${escapeHtml(recent.text)}</div>` : "";
   const dragAttr = READONLY ? '' : 'draggable="true"';
+  // 편집 모드: name·priority·mood 인라인 컨트롤. 읽기 전용은 단순 표시.
+  if (READONLY) {
+    return `
+      <div class="kanban-card ${priorityClass(p.priority)}" data-pid="${p.id}">
+        <div class="name">${escapeHtml(p.name || "(이름 없음)")}</div>
+        <div class="meta">
+          <span class="pill ${(p.priority||"mid").toLowerCase()}">${p.priority||"Mid"}</span>
+          ${p.mood ? `<span>${p.mood}</span>` : ''}
+          <span style="margin-left:auto;">💡 ${(p.learnings||[]).length} · S ${countSupportsForProject(doc, p.id)}</span>
+        </div>
+        ${recentHtml}
+      </div>`;
+  }
+  const prioOpts = ["High","Mid","Low"].map(v =>
+    `<option value="${v}" ${p.priority===v?"selected":""}>${v}</option>`).join("");
+  const moodOpts = [["","—"],["😎","😎"],["😀","😀"],["😇","😇"]].map(([v,t]) =>
+    `<option value="${v}" ${p.mood===v?"selected":""}>${t}</option>`).join("");
   return `
     <div class="kanban-card ${priorityClass(p.priority)}" data-pid="${p.id}" ${dragAttr}>
-      <div class="name">${escapeHtml(p.name || "(이름 없음)")}</div>
+      <div class="name" data-act="card-name" contenteditable="true"
+           spellcheck="false" title="클릭해서 이름 수정">${escapeHtml(p.name || "(이름 없음)")}</div>
       <div class="meta">
-        <span class="pill ${(p.priority||"mid").toLowerCase()}">${p.priority||"Mid"}</span>
-        ${p.mood ? `<span>${p.mood}</span>` : ''}
+        <select class="card-prio-select ${(p.priority||"mid").toLowerCase()}"
+                data-act="card-prio" title="우선순위 변경">${prioOpts}</select>
+        <select class="card-mood-select" data-act="card-mood" title="Mood 변경">${moodOpts}</select>
         <span style="margin-left:auto;">💡 ${(p.learnings||[]).length} · S ${countSupportsForProject(doc, p.id)}</span>
       </div>
       ${recentHtml}
