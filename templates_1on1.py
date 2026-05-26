@@ -413,6 +413,10 @@ function newSupport(projectId) {
   return { id: genId("s"), type:"Help", need:"", reviewed:false, project_id: projectId || null };
 }
 
+// Support 타입 한국어 라벨 — 데이터는 영문 유지 (Alignment/Decision/Help), 표시만 매핑
+const SUPPORT_LABELS = { "Alignment": "방향 확인", "Decision": "결정 요청", "Help": "도움 요청" };
+function supLabel(t) { return SUPPORT_LABELS[t] || t || ""; }
+
 // ───── 자동 저장 (편집 모드만) ─────
 //   성공: /save POST 로 한의원 PC 의 data/1on1.json 에 저장
 //   실패: 자동 다운로드 대신 LocalStorage 에 백업 + 상태바 경고
@@ -900,11 +904,11 @@ function renderTopicCard(doc, m, p) {
 
 function renderSupportLi(doc, m, s, projectId) {
   const typeOpts = ["Alignment","Decision","Help"].map(v =>
-    `<option value="${v}" ${s.type===v?"selected":""}>${v}</option>`).join("");
+    `<option value="${v}" ${s.type===v?"selected":""}>${supLabel(v)}</option>`).join("");
   if (READONLY) {
     return `<li>
       ${s.reviewed?"✅":"⬜"}
-      <span class="pill ${s.type?.toLowerCase()||""}" style="background:var(--panel3); color:var(--text);">${s.type||"-"}</span>
+      <span class="pill ${s.type?.toLowerCase()||""}" style="background:var(--panel3); color:var(--text);">${supLabel(s.type)||"-"}</span>
       <span style="flex:1;">${escapeHtml(s.need||"")}</span>
     </li>`;
   }
@@ -1473,7 +1477,7 @@ function renderCardExpanded(doc, p) {
       ${allSupports.length === 0
         ? `<li class="meta" style="border:none;">관련 Support 없음.</li>`
         : allSupports.map(s => {
-            const tOpts = typeVals.map(v => `<option value="${v}" ${s.type===v?"selected":""}>${v}</option>`).join("");
+            const tOpts = typeVals.map(v => `<option value="${v}" ${s.type===v?"selected":""}>${supLabel(v)}</option>`).join("");
             return `<li data-sid="${s.id}" data-mid="${s._meetingId}">
               <input type="checkbox" data-act="cx-sup-rev" ${s.reviewed?"checked":""}>
               <span class="meta" style="min-width:90px;">${s._meetingDate}</span>
@@ -1484,7 +1488,7 @@ function renderCardExpanded(doc, p) {
           }).join("")}
     </ul>
     <div class="modal-add-support">
-      <select data-act="cx-sup-new-type">${typeVals.map(v => `<option value="${v}">${v}</option>`).join("")}</select>
+      <select data-act="cx-sup-new-type">${typeVals.map(v => `<option value="${v}">${supLabel(v)}</option>`).join("")}</select>
       <input type="text" data-act="cx-sup-new-need" placeholder="새 Support (Enter — 진행 중 면담에 추가)">
       <button class="add-btn" data-act="cx-sup-add" style="margin-top:0;">+ 추가</button>
     </div>
@@ -1599,12 +1603,12 @@ function openProjectModal(doc, pid) {
       ${allSupports.length === 0
         ? `<li class="meta" style="border:none;">관련 Support 없음.</li>`
         : allSupports.map(s => {
-            const tOpts = typeVals.map(v => `<option value="${v}" ${s.type===v?"selected":""}>${v}</option>`).join("");
+            const tOpts = typeVals.map(v => `<option value="${v}" ${s.type===v?"selected":""}>${supLabel(v)}</option>`).join("");
             if (READONLY) {
               return `<li>
                 ${s.reviewed?"✅":"⬜"}
                 <span class="meta" style="min-width:90px;">${s._meetingDate}</span>
-                <span class="pill" style="background:var(--panel3); color:var(--text);">${s.type||""}</span>
+                <span class="pill" style="background:var(--panel3); color:var(--text);">${supLabel(s.type)}</span>
                 <span style="flex:1;">${escapeHtml(s.need||"")}</span>
               </li>`;
             }
@@ -1619,7 +1623,7 @@ function openProjectModal(doc, pid) {
     </ul>
     ${READONLY ? '' : `
       <div class="modal-add-support">
-        <select id="modalNewSupType">${typeVals.map(v => `<option value="${v}">${v}</option>`).join("")}</select>
+        <select id="modalNewSupType">${typeVals.map(v => `<option value="${v}">${supLabel(v)}</option>`).join("")}</select>
         <input type="text" id="modalNewSupNeed" placeholder="새 Support 내용 (Enter — 진행 중 면담에 추가)">
         <button id="modalAddSupBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
       </div>`}
@@ -1897,7 +1901,7 @@ function renderFollowup(doc) {
             ${READONLY
               ? `${s.reviewed?"✅":"⬜"}`
               : `<input type="checkbox" data-act="fu-rev" data-mid="${meeting.id}" data-sid="${s.id}">`}
-            <span class="meta" style="min-width:90px;">${meeting.date} · ${s.type||"-"}</span>
+            <span class="meta" style="min-width:90px;">${meeting.date} · ${supLabel(s.type)||"-"}</span>
             ${p ? `<span class="pill" style="background:var(--panel3); color:var(--accent);">📌 ${escapeHtml(p.name||"")}</span>` : ''}
             <span style="flex:1;">${escapeHtml(s.need || "(내용 없음)")}</span>
           </li>`;
