@@ -883,7 +883,7 @@ function renderMeeting(doc) {
 
     <div class="topic-section">
       <div class="agenda-label">🎯 Conversation Topic
-        <span class="hint">이번 면담에서 다룰 프로젝트를 고르세요 (재클릭으로 해제)</span></div>
+        <span class="hint">In Progress 상태 프로젝트만 표시 — 이번 면담에서 다룰 항목 선택 (재클릭 해제)</span></div>
       <div class="topic-picker" id="topicPicker-${doc}">${renderTopicPicker(doc, m)}</div>
       <div class="topic-cards" id="topicCards-${doc}">${renderTopicCards(doc, m)}</div>
     </div>
@@ -944,20 +944,25 @@ function renderMeeting(doc) {
 }
 
 function renderTopicPicker(doc, m) {
-  const projects = getProjects(doc);
+  const allProjects = getProjects(doc);
+  // In Progress 만 노출. 단, 이전 면담에서 이미 토픽으로 선택된 비-진행 항목은
+  // 해제 가능하도록 함께 표시 (회색 처리).
+  const projects = allProjects.filter(p =>
+    p.status === "In Progress" || m.topic_projects.includes(p.id));
   if (projects.length === 0) {
-    return `<div class="chip-empty">아직 등록된 프로젝트 없음 — 아래 보드에서 추가하세요.</div>`;
+    const hasInbox = allProjects.some(p => p.status === "Inbox");
+    return `<div class="chip-empty">In Progress 상태의 프로젝트 없음${hasInbox ? ' — 아래 보드에서 Inbox 카드를 In Progress 칸으로 드래그하세요.' : ' — 아래 보드에서 프로젝트를 추가하세요.'}</div>`;
   }
-  // 활성 + 보관 분리 (Done 은 흐리게)
   const sorted = [...projects].sort((a,b) => {
     const order = { "In Progress":0, "Inbox":1, "Done":2 };
     return (order[a.status]??1) - (order[b.status]??1);
   });
   return sorted.map(p => {
     const sel = m.topic_projects.includes(p.id);
-    const cls = "chip" + (sel?" active":"") + (p.status==="Done"?" done":"");
+    const cls = "chip" + (sel?" active":"") + (p.status!=="In Progress"?" done":"");
     const extra = READONLY ? ' style="cursor:default;" disabled' : '';
-    return `<button class="${cls}" data-pid="${p.id}"${extra}>${escapeHtml(p.name||"(이름 없음)")}</button>`;
+    const title = p.status !== "In Progress" ? ` title="${p.status} 상태 — 이전 면담에서 선택됨"` : '';
+    return `<button class="${cls}" data-pid="${p.id}"${extra}${title}>${escapeHtml(p.name||"(이름 없음)")}</button>`;
   }).join("");
 }
 
