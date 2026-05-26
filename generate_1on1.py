@@ -177,6 +177,8 @@ def _migrate_project(p):
     p.setdefault("id", _new_id("p"))
     p.setdefault("learnings", [])
     p.setdefault("created", "")
+    p.setdefault("start_date", "")
+    p.setdefault("end_date", "")
     p.setdefault("memo", "")
     return p
 

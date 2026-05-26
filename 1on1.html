@@ -239,6 +239,22 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .card-expanded .card-section:last-child { margin-bottom:0; }
 .card-section-row { display:flex; gap:10px; align-items:center; margin-bottom:12px;
                      padding-bottom:10px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.card-schedule { margin-top:8px; font-size:11px; display:flex; flex-wrap:wrap;
+                  gap:8px; align-items:center; }
+.card-schedule .sched-range { color:var(--muted); font-weight:500; }
+.week-tag { padding:2px 8px; border-radius:8px; font-size:10px; font-weight:700;
+             letter-spacing:0.2px; }
+.week-tag.pending  { background:#1e3a8a; color:#bfdbfe; }
+.week-tag.active   { background:#064e3b; color:#86efac; }
+.week-tag.near     { background:#78350f; color:#fed7aa; }
+.week-tag.overdue  { background:#7f1d1d; color:#fecaca; }
+.card-progress { width:100%; height:5px; background:var(--panel3); border-radius:3px;
+                  overflow:hidden; margin-top:2px; }
+.card-progress-fill { height:100%; transition:width .3s; }
+.card-progress-fill.pending  { background:#3b82f6; }
+.card-progress-fill.active   { background:#22c55e; }
+.card-progress-fill.near     { background:#f59e0b; }
+.card-progress-fill.overdue  { background:#ef4444; }
 .card-prio-select, .card-mood-select {
   background:var(--panel2); color:var(--text); border:1px solid var(--border);
   border-radius:10px; padding:2px 6px; font-size:11px; font-weight:700;
@@ -477,6 +493,8 @@ function newProject() {
     mood: "",
     created: todayStr(),
     memo: "",
+    start_date: "",
+    end_date: "",
     learnings: [],
   };
 }
@@ -593,7 +611,44 @@ function migrateProject(p) {
   if (!p.learnings) p.learnings = [];
   if (!p.created) p.created = "";
   if (!p.memo) p.memo = "";
+  if (p.start_date === undefined) p.start_date = "";
+  if (p.end_date === undefined) p.end_date = "";
   return p;
+}
+
+// ── 12주 계획 헬퍼 ──
+function addDays(yyyymmdd, days) {
+  if (!yyyymmdd) return "";
+  const d = new Date(yyyymmdd);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0,10);
+}
+function shortDate(yyyymmdd) {
+  if (!yyyymmdd) return "—";
+  const d = new Date(yyyymmdd);
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function projectProgress(p) {
+  // 시작일 기준 주차·진행률·상태 반환. start_date 없으면 null.
+  if (!p.start_date) return null;
+  const start = new Date(p.start_date);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dayMs = 24*60*60*1000;
+  const elapsedDays = Math.floor((today - start) / dayMs);
+  const weekNum = Math.floor(elapsedDays / 7) + 1;
+  if (!p.end_date) {
+    if (elapsedDays < 0) return { text:`시작 D${elapsedDays}`, pct:0, state:"pending" };
+    return { text:`${weekNum}주차 진행 중`, pct:null, state:"active" };
+  }
+  const end = new Date(p.end_date);
+  const totalDays = Math.max(1, Math.floor((end - start) / dayMs));
+  const pct = Math.max(0, Math.min(100, (elapsedDays / totalDays) * 100));
+  if (elapsedDays < 0) return { text:`시작 D${elapsedDays}`, pct:0, state:"pending" };
+  if (today > end) {
+    const over = Math.floor((today - end) / dayMs);
+    return { text:`${weekNum}주차 · 마감 ${over}일 초과`, pct:100, state:"overdue" };
+  }
+  return { text:`${weekNum}주차 · ${Math.round(pct)}%`, pct, state: pct > 85 ? "near" : "active" };
 }
 
 function renderTabs() {
@@ -1198,6 +1253,18 @@ function wireCardExpanded(doc, pid, $root) {
     }
   });
 
+  // 시작일·종료일·+12주
+  const $startD = $root.querySelector("[data-act=cx-start]");
+  const $endD   = $root.querySelector("[data-act=cx-end]");
+  const $end12w = $root.querySelector("[data-act=cx-end-12w]");
+  if ($startD) $startD.addEventListener("change", () => { p.start_date = $startD.value; markDirty(); renderBoard(doc); });
+  if ($endD)   $endD.addEventListener("change",   () => { p.end_date   = $endD.value;   markDirty(); renderBoard(doc); });
+  if ($end12w) $end12w.addEventListener("click",  () => {
+    if (!p.start_date) { alert("먼저 시작일을 설정하세요."); return; }
+    p.end_date = addDays(p.start_date, 84);   // 12주 = 84일
+    markDirty(); refresh();
+  });
+
   // 인사이트 — 각 항목 편집/삭제
   $root.querySelectorAll("li[data-idx]").forEach(li => {
     const i = parseInt(li.dataset.idx);
@@ -1477,6 +1544,16 @@ function renderKanbanCard(doc, p) {
   const recentHtml = recent
     ? `<div class="recent">💡 ${escapeHtml(recent.text)}</div>` : "";
   const dragAttr = READONLY ? '' : 'draggable="true"';
+
+  // 일정·진행 표시
+  const prog = projectProgress(p);
+  const scheduleHtml = (p.start_date || p.end_date)
+    ? `<div class="card-schedule">
+         <span class="sched-range">📅 ${shortDate(p.start_date)} → ${shortDate(p.end_date)}</span>
+         ${prog ? `<span class="week-tag ${prog.state}">${prog.text}</span>` : ''}
+         ${prog && prog.pct !== null ? `<div class="card-progress"><div class="card-progress-fill ${prog.state}" style="width:${prog.pct}%"></div></div>` : ''}
+       </div>` : '';
+
   // 편집 모드: name·priority·mood 인라인 컨트롤. 읽기 전용은 단순 표시.
   if (READONLY) {
     return `
@@ -1487,6 +1564,7 @@ function renderKanbanCard(doc, p) {
           ${p.mood ? `<span>${p.mood}</span>` : ''}
           <span style="margin-left:auto;">💡 ${(p.learnings||[]).length} · S ${countSupportsForProject(doc, p.id)}</span>
         </div>
+        ${scheduleHtml}
         ${recentHtml}
       </div>`;
   }
@@ -1504,6 +1582,7 @@ function renderKanbanCard(doc, p) {
         <select class="card-mood-select" data-act="card-mood" title="Mood 변경">${moodOpts}</select>
         <span style="margin-left:auto;">💡 ${(p.learnings||[]).length} · S ${countSupportsForProject(doc, p.id)}</span>
       </div>
+      ${scheduleHtml}
       ${recentHtml}
       <button class="card-expand-btn" data-act="card-toggle">▼ 자세히 (인사이트·Support·면담)</button>
       <div class="card-expanded" hidden>${renderCardExpanded(doc, p)}</div>
@@ -1587,6 +1666,11 @@ function renderCardExpanded(doc, p) {
     <div class="card-section-row">
       <label class="modal-meta-field"><span>상태</span>
         <select data-act="cx-status">${statusOpts}</select></label>
+      <label class="modal-meta-field"><span>📅 시작</span>
+        <input type="date" data-act="cx-start" value="${p.start_date||''}"></label>
+      <label class="modal-meta-field"><span>📅 종료</span>
+        <input type="date" data-act="cx-end" value="${p.end_date||''}"></label>
+      <button class="add-btn" data-act="cx-end-12w" style="margin-top:0; font-size:11px; padding:4px 10px;" title="시작일+12주(84일)로 종료일 설정">+12주</button>
       ${p.created ? `<span class="meta" style="font-size:11px;">생성 ${p.created}</span>` : ''}
       <button class="del-btn" data-act="cx-del-proj" style="margin-left:auto; font-size:11px;">🗑 프로젝트 삭제</button>
     </div>
@@ -1744,6 +1828,11 @@ function openProjectModal(doc, pid) {
       <select id="modalPriority">${prioOpts}</select></label>
     <label class="modal-meta-field"><span>Mood</span>
       <select id="modalMood">${moodOpts}</select></label>
+    <label class="modal-meta-field"><span>📅 시작</span>
+      <input type="date" id="modalStart" value="${p.start_date||''}"></label>
+    <label class="modal-meta-field"><span>📅 종료</span>
+      <input type="date" id="modalEnd" value="${p.end_date||''}"></label>
+    <button id="modalEnd12w" class="add-btn" style="margin-top:0; font-size:11px; padding:4px 10px;" title="시작일+12주(84일)로 종료일 설정">+12주</button>
   `;
   const metaReadonly = `
     <span class="pill ${statusPillClass(p.status)}">${p.status}</span>
@@ -1803,6 +1892,19 @@ function openProjectModal(doc, pid) {
         const $tc = document.getElementById(`topicCards-${doc}`);
         if ($tc) { $tc.innerHTML = renderTopicCards(doc, m); wireTopicCards(doc); }
       }
+    });
+
+    // 시작일·종료일·+12주 (모달)
+    const $mStart   = document.getElementById("modalStart");
+    const $mEnd     = document.getElementById("modalEnd");
+    const $mEnd12w  = document.getElementById("modalEnd12w");
+    const refreshModalShallow = () => openProjectModal(doc, pid);
+    if ($mStart) $mStart.addEventListener("change", () => { p.start_date = $mStart.value; markDirty(); renderBoard(doc); });
+    if ($mEnd)   $mEnd.addEventListener("change",   () => { p.end_date   = $mEnd.value;   markDirty(); renderBoard(doc); });
+    if ($mEnd12w) $mEnd12w.addEventListener("click", () => {
+      if (!p.start_date) { alert("먼저 시작일을 설정하세요."); return; }
+      p.end_date = addDays(p.start_date, 84);
+      markDirty(); renderBoard(doc); refreshModalShallow();
     });
 
     // ── 인사이트 정리: 모달에서 추가·수정·삭제 ──
