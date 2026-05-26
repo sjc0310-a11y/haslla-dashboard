@@ -310,6 +310,7 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .modal-meta-field select { background:var(--panel3); color:var(--text);
                             border:1px solid var(--border2); border-radius:4px;
                             padding:3px 6px; font-size:12px; cursor:pointer; }
+.modal-date-group { display:flex; gap:8px; align-items:center; flex-wrap:nowrap; }
 .modal-section { margin-bottom:22px; }
 .modal-section h3 { font-size:14px; color:var(--accent); margin:0 0 10px;
                      padding-bottom:6px; border-bottom:1px solid var(--border); }
@@ -1666,11 +1667,13 @@ function renderCardExpanded(doc, p) {
     <div class="card-section-row">
       <label class="modal-meta-field"><span>상태</span>
         <select data-act="cx-status">${statusOpts}</select></label>
-      <label class="modal-meta-field"><span>📅 시작</span>
-        <input type="date" data-act="cx-start" value="${p.start_date||''}"></label>
-      <label class="modal-meta-field"><span>📅 종료</span>
-        <input type="date" data-act="cx-end" value="${p.end_date||''}"></label>
-      <button class="add-btn" data-act="cx-end-12w" style="margin-top:0; font-size:11px; padding:4px 10px;" title="시작일+12주(84일)로 종료일 설정">+12주</button>
+      <div class="modal-date-group">
+        <label class="modal-meta-field"><span>📅 시작</span>
+          <input type="date" data-act="cx-start" value="${p.start_date||''}"></label>
+        <label class="modal-meta-field"><span>📅 종료</span>
+          <input type="date" data-act="cx-end" value="${p.end_date||''}"></label>
+        <button class="add-btn" data-act="cx-end-12w" style="margin-top:0; font-size:11px; padding:4px 10px;" title="시작일+12주(84일)로 종료일 설정">+12주</button>
+      </div>
       ${p.created ? `<span class="meta" style="font-size:11px;">생성 ${p.created}</span>` : ''}
       <button class="del-btn" data-act="cx-del-proj" style="margin-left:auto; font-size:11px;">🗑 프로젝트 삭제</button>
     </div>
@@ -1828,11 +1831,13 @@ function openProjectModal(doc, pid) {
       <select id="modalPriority">${prioOpts}</select></label>
     <label class="modal-meta-field"><span>Mood</span>
       <select id="modalMood">${moodOpts}</select></label>
-    <label class="modal-meta-field"><span>📅 시작</span>
-      <input type="date" id="modalStart" value="${p.start_date||''}"></label>
-    <label class="modal-meta-field"><span>📅 종료</span>
-      <input type="date" id="modalEnd" value="${p.end_date||''}"></label>
-    <button id="modalEnd12w" class="add-btn" style="margin-top:0; font-size:11px; padding:4px 10px;" title="시작일+12주(84일)로 종료일 설정">+12주</button>
+    <div class="modal-date-group">
+      <label class="modal-meta-field"><span>📅 시작</span>
+        <input type="date" id="modalStart" value="${p.start_date||''}"></label>
+      <label class="modal-meta-field"><span>📅 종료</span>
+        <input type="date" id="modalEnd" value="${p.end_date||''}"></label>
+      <button id="modalEnd12w" class="add-btn" style="margin-top:0; font-size:11px; padding:4px 10px;" title="시작일+12주(84일)로 종료일 설정">+12주</button>
+    </div>
   `;
   const metaReadonly = `
     <span class="pill ${statusPillClass(p.status)}">${p.status}</span>
