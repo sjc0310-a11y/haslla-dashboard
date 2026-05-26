@@ -174,6 +174,17 @@ main { padding:24px; max-width:1400px; margin:0 auto; }
 /* Work / Career */
 .agenda-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px; }
 @media (max-width:900px) { .agenda-grid { grid-template-columns:1fr; } }
+.agenda-col { display:flex; flex-direction:column; gap:10px; }
+.agenda-sub { display:flex; flex-direction:column; gap:4px; }
+.agenda-sub textarea.agenda { min-height:64px; }
+.agenda-sub-label { font-size:11px; color:var(--muted); font-weight:600;
+                     letter-spacing:0.2px; }
+.agenda-sub-label.good      { color:#86efac; }
+.agenda-sub-label.hard      { color:#fca5a5; }
+.agenda-sub-label.next      { color:#bfdbfe; }
+.agenda-sub-label.learn     { color:#a78bfa; }
+.agenda-sub-label.grow      { color:#34d399; }
+.agenda-sub-label.direction { color:#fde68a; }
 .agenda-label { color:var(--muted); font-size:13px; margin-bottom:6px;
                  display:flex; justify-content:space-between; align-items:center; }
 .agenda-label .hint { font-size:11px; color:var(--muted); font-weight:400; }
@@ -479,8 +490,8 @@ function newMeeting() {
     month: currentMonth(),
     done: false,
     mood: "",
-    work: "",
-    career: "",
+    work:   { good: "", hard: "", next: "" },        // 이번 달 운영 회고
+    career: { learn: "", grow: "", direction: "" },  // 이번 달 성장 대화
     topic_projects: [],
     support: [],
   };
@@ -605,8 +616,21 @@ function migrateNote(n) {
   if (!n.mood) n.mood = "";
   if (!n.topic_projects) n.topic_projects = [];
   (n.support||[]).forEach(s => { if(!s.id) s.id = genId("s"); if(s.project_id===undefined) s.project_id = null; });
+  // Work: 문자열 → {good, hard, next} 구조로 변환 (기존 내용은 good 에 보존)
+  if (typeof n.work === "string") n.work = { good: n.work, hard: "", next: "" };
+  else if (!n.work || typeof n.work !== "object") n.work = { good: "", hard: "", next: "" };
+  else { ["good","hard","next"].forEach(k => { if (n.work[k] === undefined) n.work[k] = ""; }); }
+  // Career: 문자열 → {learn, grow, direction}
+  if (typeof n.career === "string") n.career = { learn: n.career, grow: "", direction: "" };
+  else if (!n.career || typeof n.career !== "object") n.career = { learn: "", grow: "", direction: "" };
+  else { ["learn","grow","direction"].forEach(k => { if (n.career[k] === undefined) n.career[k] = ""; }); }
   return n;
 }
+// Work/Career 보조 함수 — 내용 있는지·총 글자수
+function workHasContent(m)   { const w = m.work||{};   return !!(w.good||w.hard||w.next); }
+function workCharCount(m)    { const w = m.work||{};   return (w.good||"").length + (w.hard||"").length + (w.next||"").length; }
+function careerHasContent(m) { const c = m.career||{}; return !!(c.learn||c.grow||c.direction); }
+function careerCharCount(m)  { const c = m.career||{}; return (c.learn||"").length + (c.grow||"").length + (c.direction||"").length; }
 function migrateProject(p) {
   if (!p.id) p.id = genId("p");
   if (!p.learnings) p.learnings = [];
@@ -889,19 +913,49 @@ function renderMeeting(doc) {
     </div>
 
     <div class="agenda-grid">
-      <div>
+      <div class="agenda-col">
         <div class="agenda-label">💼 Work Session
-          <span class="hint">업무 진행·이슈·R&R</span></div>
-        ${READONLY
-          ? `<div class="agenda-readonly">${escapeHtml(m.work||"(작성 안 됨)")}</div>`
-          : `<textarea class="agenda" id="work-${doc}" placeholder="• 이번 달 주요 업무\n• 어려움·걸림돌\n• 협업 이슈">${escapeHtml(m.work||"")}</textarea>`}
+          <span class="hint">이번 달 운영 회고 · 반복되면 프로젝트 보드로 승격</span></div>
+        <div class="agenda-sub">
+          <div class="agenda-sub-label good">✅ 잘된 것</div>
+          ${READONLY
+            ? `<div class="agenda-readonly">${escapeHtml(m.work?.good||"(작성 안 됨)")}</div>`
+            : `<textarea class="agenda" id="work-good-${doc}" placeholder="이번 달 잘 굴러간 일·성과">${escapeHtml(m.work?.good||"")}</textarea>`}
+        </div>
+        <div class="agenda-sub">
+          <div class="agenda-sub-label hard">🔶 어려웠던 것</div>
+          ${READONLY
+            ? `<div class="agenda-readonly">${escapeHtml(m.work?.hard||"(작성 안 됨)")}</div>`
+            : `<textarea class="agenda" id="work-hard-${doc}" placeholder="이번 달 마찰·걸림돌·이슈">${escapeHtml(m.work?.hard||"")}</textarea>`}
+        </div>
+        <div class="agenda-sub">
+          <div class="agenda-sub-label next">📌 다음 달 시도</div>
+          ${READONLY
+            ? `<div class="agenda-readonly">${escapeHtml(m.work?.next||"(작성 안 됨)")}</div>`
+            : `<textarea class="agenda" id="work-next-${doc}" placeholder="다음 달 시도해볼 작은 실험·개선">${escapeHtml(m.work?.next||"")}</textarea>`}
+        </div>
       </div>
-      <div>
+      <div class="agenda-col">
         <div class="agenda-label">🌱 Career Session
-          <span class="hint">성장·학습·중장기 목표</span></div>
-        ${READONLY
-          ? `<div class="agenda-readonly">${escapeHtml(m.career||"(작성 안 됨)")}</div>`
-          : `<textarea class="agenda" id="career-${doc}" placeholder="• 성장 포인트\n• 학습·스터디\n• 커리어 목표">${escapeHtml(m.career||"")}</textarea>`}
+          <span class="hint">이번 달 성장 대화 · 반복되면 프로젝트 보드로 승격</span></div>
+        <div class="agenda-sub">
+          <div class="agenda-sub-label learn">📚 이번 달 학습·관찰</div>
+          ${READONLY
+            ? `<div class="agenda-readonly">${escapeHtml(m.career?.learn||"(작성 안 됨)")}</div>`
+            : `<textarea class="agenda" id="career-learn-${doc}" placeholder="새로 알게 된 것·읽은 것·인상적인 케이스">${escapeHtml(m.career?.learn||"")}</textarea>`}
+        </div>
+        <div class="agenda-sub">
+          <div class="agenda-sub-label grow">🎯 다음 달 성장 시도</div>
+          ${READONLY
+            ? `<div class="agenda-readonly">${escapeHtml(m.career?.grow||"(작성 안 됨)")}</div>`
+            : `<textarea class="agenda" id="career-grow-${doc}" placeholder="다음 달 시도할 학습·진료 스킬 실험">${escapeHtml(m.career?.grow||"")}</textarea>`}
+        </div>
+        <div class="agenda-sub">
+          <div class="agenda-sub-label direction">🔭 중장기 방향 점검</div>
+          ${READONLY
+            ? `<div class="agenda-readonly">${escapeHtml(m.career?.direction||"(작성 안 됨)")}</div>`
+            : `<textarea class="agenda" id="career-direction-${doc}" placeholder="진로·중장기 방향성·고민">${escapeHtml(m.career?.direction||"")}</textarea>`}
+        </div>
       </div>
     </div>
 
@@ -928,11 +982,15 @@ function renderMeeting(doc) {
     document.getElementById(`meetDone-${doc}`).addEventListener("change", e => {
       m.done = e.target.checked; markDirty(); renderMeeting(doc);
     });
-    document.getElementById(`work-${doc}`).addEventListener("input", e => {
-      m.work = e.target.value; markDirty();
+    // Work Session 3칸
+    [["good","work-good"],["hard","work-hard"],["next","work-next"]].forEach(([k,id]) => {
+      const el = document.getElementById(`${id}-${doc}`);
+      if (el) el.addEventListener("input", e => { m.work[k] = e.target.value; markDirty(); });
     });
-    document.getElementById(`career-${doc}`).addEventListener("input", e => {
-      m.career = e.target.value; markDirty();
+    // Career Session 3칸
+    [["learn","career-learn"],["grow","career-grow"],["direction","career-direction"]].forEach(([k,id]) => {
+      const el = document.getElementById(`${id}-${doc}`);
+      if (el) el.addEventListener("input", e => { m.career[k] = e.target.value; markDirty(); });
     });
     $sec.querySelectorAll("[data-action]").forEach(btn => {
       btn.addEventListener("click", () => handleSectionAction(doc, btn.dataset.action));
@@ -1800,7 +1858,7 @@ function openProjectModal(doc, pid) {
           return `<li>
             <span class="meta" style="min-width:90px;">${m.date}</span>
             ${m.mood ? `<span>${m.mood}</span>` : ''}
-            <span style="flex:1; color:var(--muted);">${m.done?"✅ 완료":"📝 진행"}${(m.work||"").length>0?" · Work 작성됨":""}${(m.career||"").length>0?" · Career 작성됨":""}</span>
+            <span style="flex:1; color:var(--muted);">${m.done?"✅ 완료":"📝 진행"}${workHasContent(m)?" · Work 작성됨":""}${careerHasContent(m)?" · Career 작성됨":""}</span>
           </li>`;
         }
         const moodOpts = moodOptionsM.map(([v,t]) => `<option value="${v}" ${m.mood===v?"selected":""}>${t}</option>`).join("");
@@ -1810,7 +1868,7 @@ function openProjectModal(doc, pid) {
           <label style="display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--muted);">
             <input type="checkbox" data-act="mmt-done" ${m.done?"checked":""}> 완료
           </label>
-          <span style="flex:1; color:var(--muted); font-size:11px;">${(m.work||"").length>0?"Work 작성됨":""}${(m.career||"").length>0?" · Career 작성됨":""}</span>
+          <span style="flex:1; color:var(--muted); font-size:11px;">${workHasContent(m)?"Work 작성됨":""}${careerHasContent(m)?" · Career 작성됨":""}</span>
           <button class="add-btn" data-act="mmt-goto" style="margin-top:0; font-size:11px; padding:4px 10px;">↗ 이 면담으로</button>
         </li>`;
       }).join("")}</ul>`;
@@ -2129,13 +2187,21 @@ function renderHistory(doc) {
             <summary>
               <strong>${n.date}</strong> ${n.done?"✅":"📝"} ${n.mood||""}
               <span class="topic-tags">${topics}</span>
-              &nbsp;<span class="meta">(work ${(n.work||"").length}자 · career ${(n.career||"").length}자 · support ${(n.support||[]).length}건)</span>
+              &nbsp;<span class="meta">(work ${workCharCount(n)}자 · career ${careerCharCount(n)}자 · support ${(n.support||[]).length}건)</span>
             </summary>
             <div class="body">
-              <span class="heading">💼 Work</span>
-              <p>${escapeHtml(n.work||"(없음)")}</p>
-              <span class="heading">🌱 Career</span>
-              <p>${escapeHtml(n.career||"(없음)")}</p>
+              <span class="heading">💼 Work — ✅ 잘된 것</span>
+              <p>${escapeHtml(n.work?.good||"(없음)")}</p>
+              <span class="heading">💼 Work — 🔶 어려웠던 것</span>
+              <p>${escapeHtml(n.work?.hard||"(없음)")}</p>
+              <span class="heading">💼 Work — 📌 다음 달 시도</span>
+              <p>${escapeHtml(n.work?.next||"(없음)")}</p>
+              <span class="heading">🌱 Career — 📚 학습·관찰</span>
+              <p>${escapeHtml(n.career?.learn||"(없음)")}</p>
+              <span class="heading">🌱 Career — 🎯 다음 달 성장 시도</span>
+              <p>${escapeHtml(n.career?.grow||"(없음)")}</p>
+              <span class="heading">🌱 Career — 🔭 중장기 방향</span>
+              <p>${escapeHtml(n.career?.direction||"(없음)")}</p>
               <span class="heading">🤝 Support</span>
               <p>${supList}</p>
             </div>

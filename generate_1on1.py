@@ -170,6 +170,24 @@ def _migrate_note(n):
     for s in n.get("support", []):
         s.setdefault("id", _new_id("s"))
         s.setdefault("project_id", None)
+    # Work: 문자열 → {good, hard, next} 구조로 변환 (기존 내용은 good 에 보존)
+    w = n.get("work")
+    if isinstance(w, str):
+        n["work"] = {"good": w, "hard": "", "next": ""}
+    elif not isinstance(w, dict):
+        n["work"] = {"good": "", "hard": "", "next": ""}
+    else:
+        for k in ("good", "hard", "next"):
+            w.setdefault(k, "")
+    # Career: 문자열 → {learn, grow, direction}
+    c = n.get("career")
+    if isinstance(c, str):
+        n["career"] = {"learn": c, "grow": "", "direction": ""}
+    elif not isinstance(c, dict):
+        n["career"] = {"learn": "", "grow": "", "direction": ""}
+    else:
+        for k in ("learn", "grow", "direction"):
+            c.setdefault(k, "")
     return n
 
 
