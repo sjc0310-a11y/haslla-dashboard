@@ -907,9 +907,9 @@ function renderMeeting(doc) {
 
     <div class="topic-section">
       <div class="agenda-label">🎯 Conversation Topic
-        <span class="hint">In Progress 상태 프로젝트만 표시 — 이번 면담에서 다룰 항목 선택 (재클릭 해제)</span></div>
+        <span class="hint">이번 면담에서 다룰 프로젝트 선택 (재클릭 해제) · 편집은 아래 보드 카드 펼치기에서</span></div>
       <div class="topic-picker" id="topicPicker-${doc}">${renderTopicPicker(doc, m)}</div>
-      <div class="topic-cards" id="topicCards-${doc}">${renderTopicCards(doc, m)}</div>
+      <div class="topic-cards" id="topicCards-${doc}" hidden>${renderTopicCards(doc, m)}</div>
     </div>
 
     <div class="agenda-grid">
