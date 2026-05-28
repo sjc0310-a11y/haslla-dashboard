@@ -275,7 +275,7 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .tactic-tag.pending  { background:#1e3a8a; color:#bfdbfe; }
 .goal-metric { display:flex; flex-direction:column; gap:8px; }
 .goal-row { display:flex; gap:8px; align-items:center; }
-.goal-label { font-size:11px; font-weight:600; color:var(--muted); min-width:75px; }
+.goal-label { font-size:15px; font-weight:700; color:var(--text); min-width:120px; }
 .goal-row input { flex:1; background:var(--panel3); color:var(--text);
                    border:1px solid var(--border); border-radius:4px;
                    padding:6px 10px; font-size:13px; }
@@ -315,11 +315,42 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
                                  padding:5px 9px; font-size:12px; }
 .metric-add input[type=text]:focus { outline:1px solid var(--accent); border-color:var(--accent); }
 
+/* 이번 회차 점검 위젯 (면담 영역) */
+.meeting-checklist { background:rgba(56,189,248,0.06); border:1px solid var(--border);
+                      border-radius:10px; padding:10px 14px; margin-bottom:18px; }
+.meeting-checklist .checklist-summary { cursor:pointer; list-style:none; outline:none;
+                                          user-select:none; font-size:15px; font-weight:700;
+                                          color:var(--text); padding:4px 0;
+                                          display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.meeting-checklist .checklist-summary::-webkit-details-marker { display:none; }
+.meeting-checklist .checklist-summary::before { content:"▶"; font-size:10px;
+                                                  transition:transform .2s; color:var(--accent); }
+.meeting-checklist[open] > .checklist-summary::before { transform:rotate(90deg); }
+.ck-stat { font-weight:500; color:var(--muted); font-size:12px; }
+.ck-stat.full { color:#86efac; }
+.ck-hint { color:var(--muted); font-weight:400; font-size:11px; margin-left:auto; }
+.checklist-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+                   gap:10px; margin-top:10px; }
+.checklist-block { background:var(--panel); border:1px solid var(--border);
+                    border-radius:8px; padding:8px 12px; }
+.checklist-proj { display:flex; align-items:center; gap:8px; cursor:pointer;
+                   padding:4px 0 7px; border-bottom:1px solid var(--border);
+                   margin-bottom:6px; transition:color .15s; }
+.checklist-proj:hover { color:var(--accent); }
+.checklist-proj .proj-name { font-size:13px; font-weight:600; flex:1; min-width:0;
+                              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.checklist-proj .proj-meta { font-size:11px; color:var(--muted); }
+.checklist-tactics { list-style:none; padding:0; margin:0; }
+.checklist-tactics li.checklist-item { display:flex; align-items:flex-start; gap:6px;
+                                          padding:4px 0; font-size:13px; }
+.checklist-tactics li.checklist-item.done .ck-text { text-decoration:line-through; opacity:0.55; }
+.ck-text { flex:1; line-height:1.4; }
+
 /* 측정 지표 토글 섹션 */
 .metrics-section { background:var(--panel2); border:1px solid var(--border);
                     border-radius:8px; padding:8px 12px; flex:1; }
 .metrics-summary { cursor:pointer; list-style:none; outline:none;
-                    font-size:12px; font-weight:600; color:var(--muted);
+                    font-size:15px; font-weight:700; color:var(--text);
                     padding:4px 0; user-select:none;
                     display:flex; align-items:center; gap:6px; }
 .metrics-summary::-webkit-details-marker { display:none; }
@@ -335,7 +366,7 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 /* 주간 액션 외부 토글 (모달) */
 .tactics-section { background:transparent; border:none; padding:0; }
 .tactics-summary { cursor:pointer; list-style:none; outline:none; user-select:none;
-                    font-size:13px; font-weight:700; color:var(--text);
+                    font-size:15px; font-weight:700; color:var(--text);
                     padding:8px 0; margin-bottom:10px;
                     display:flex; align-items:center; gap:6px; flex-wrap:wrap;
                     border-bottom:1px solid var(--border); }
@@ -358,16 +389,8 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
                      box-shadow:0 0 0 1px var(--accent), 0 2px 8px rgba(56,189,248,0.2);
                      opacity:1; }
 .week-box-header { display:flex; align-items:center; gap:8px; font-size:12px;
-                    padding:4px 0; cursor:pointer; user-select:none;
-                    list-style:none; outline:none; }
-.week-box-header::-webkit-details-marker { display:none; }
-.week-box-header::before { content:"▶"; font-size:9px; transition:transform .2s;
-                            color:var(--accent); margin-right:4px; }
-.week-box[open] > .week-box-header { padding-bottom:7px;
-                                       border-bottom:1px solid var(--border);
-                                       margin-bottom:8px; }
-.week-box[open] > .week-box-header::before { transform:rotate(90deg); }
-.week-box:not([open]) > .week-box-header { padding-bottom:4px; }
+                    padding:4px 0 7px; border-bottom:1px solid var(--border);
+                    margin-bottom:8px; }
 .week-label { font-weight:700; color:var(--text); font-size:13px; }
 .week-date { color:var(--muted); font-size:11px; }
 .week-now { color:var(--accent); font-weight:700; font-size:11px; }
@@ -1039,7 +1062,125 @@ function renderCharts(doc) {
   });
 }
 
-// ───── Section B: 이번 면담 (Conversation Topic 중심) ─────
+// ───── 이번 회차 점검 위젯 — In Progress 프로젝트의 현재 W 액션 자동 노출 ─────
+function renderMeetingChecklist(doc) {
+  const projects = getProjects(doc).filter(p => p.status === "In Progress");
+  if (projects.length === 0) {
+    return `
+      <details class="meeting-checklist" id="meetingChecklist-${doc}" open>
+        <summary class="checklist-summary">🎯 이번 회차 점검 — 진행 중 프로젝트의 현재 W 액션</summary>
+        <div class="meta" style="padding:8px 4px;">진행 중 프로젝트 없음 — 보드에서 카드를 In Progress 칸으로 옮겨 시작하세요.</div>
+      </details>`;
+  }
+  const blocks = projects.map(p => {
+    const curWk = currentWeekNum(p);
+    const hasStart = !!p.start_date;
+    const inRange = curWk !== null && curWk >= 1 && curWk <= 12;
+    if (!hasStart) {
+      return `
+        <div class="checklist-block">
+          <div class="checklist-proj" data-pid="${p.id}">
+            <span class="proj-name">📦 ${escapeHtml(p.name||"(이름 없음)")}</span>
+            <span class="proj-meta">시작일 미설정</span>
+          </div>
+          <div class="meta" style="font-size:12px; padding:4px 8px;">12주 시작일을 설정하면 이번 주 액션이 여기 자동 표시됩니다</div>
+        </div>`;
+    }
+    if (!inRange) {
+      return `
+        <div class="checklist-block">
+          <div class="checklist-proj" data-pid="${p.id}">
+            <span class="proj-name">📦 ${escapeHtml(p.name||"(이름 없음)")}</span>
+            <span class="proj-meta">${curWk < 1 ? `시작 D${curWk}` : `${curWk}주차 (12주 종료됨)`}</span>
+          </div>
+        </div>`;
+    }
+    const tactics = (p.tactics||[]).filter(t => t.week === curWk);
+    if (tactics.length === 0) {
+      return `
+        <div class="checklist-block">
+          <div class="checklist-proj" data-pid="${p.id}">
+            <span class="proj-name">📦 ${escapeHtml(p.name||"(이름 없음)")}</span>
+            <span class="proj-meta">W${curWk} · ${weekDateRange(p.start_date, curWk)}</span>
+          </div>
+          <div class="meta" style="font-size:12px; padding:4px 8px;">W${curWk}에 계획된 액션 없음 — 카드 클릭해서 추가</div>
+        </div>`;
+    }
+    return `
+      <div class="checklist-block">
+        <div class="checklist-proj" data-pid="${p.id}" title="카드 모달 열기">
+          <span class="proj-name">📦 ${escapeHtml(p.name||"(이름 없음)")}</span>
+          <span class="proj-meta">W${curWk} · ${weekDateRange(p.start_date, curWk)}</span>
+        </div>
+        <ul class="checklist-tactics">
+          ${tactics.map(t => `
+            <li data-tid="${t.id}" data-pid="${p.id}" class="checklist-item ${t.done ? 'done' : ''}">
+              <input type="checkbox" data-act="ck-tac-done" ${t.done?'checked':''}>
+              <span class="ck-text">${escapeHtml(t.text||"")}</span>
+            </li>
+          `).join("")}
+        </ul>
+      </div>`;
+  }).join("");
+  // 통계
+  const allCurrentTactics = projects.flatMap(p => {
+    const wk = currentWeekNum(p);
+    if (wk === null || wk < 1 || wk > 12) return [];
+    return (p.tactics||[]).filter(t => t.week === wk);
+  });
+  const ckDone = allCurrentTactics.filter(t => t.done).length;
+  const ckTotal = allCurrentTactics.length;
+  const ckStat = ckTotal > 0
+    ? `<span class="ck-stat ${ckDone===ckTotal?'full':''}"> · ${ckDone}/${ckTotal} · ${Math.round(ckDone/ckTotal*100)}%</span>`
+    : '';
+  return `
+    <details class="meeting-checklist" id="meetingChecklist-${doc}" open>
+      <summary class="checklist-summary">
+        🎯 이번 회차 점검 — 진행 중 프로젝트의 현재 W 액션${ckStat}
+        <span class="ck-hint">체크 시 보드에 즉시 반영 · 프로젝트명 클릭 시 모달</span>
+      </summary>
+      <div class="checklist-grid">${blocks}</div>
+    </details>`;
+}
+
+// 이번 회차 점검 위젯 핸들러 재부착
+function wireMeetingChecklist(doc) {
+  if (READONLY) return;
+  const $cl = document.getElementById(`meetingChecklist-${doc}`);
+  if (!$cl) return;
+  $cl.querySelectorAll("[data-act=ck-tac-done]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const li = cb.closest("li");
+      if (!li) return;
+      const pid = li.dataset.pid;
+      const tid = li.dataset.tid;
+      const p = getProject(doc, pid);
+      const t = p?.tactics?.find(x => x.id === tid);
+      if (!t) return;
+      t.done = cb.checked;
+      t.done_date = t.done ? todayStr() : "";
+      li.classList.toggle('done', cb.checked);
+      markDirty();
+      renderBoard(doc);
+      const $cl2 = document.getElementById(`meetingChecklist-${doc}`);
+      if ($cl2) {
+        const wasOpen = $cl2.hasAttribute("open");
+        $cl2.outerHTML = renderMeetingChecklist(doc);
+        const $cl3 = document.getElementById(`meetingChecklist-${doc}`);
+        if ($cl3 && !wasOpen) $cl3.removeAttribute("open");
+        wireMeetingChecklist(doc);
+      }
+    });
+  });
+  $cl.querySelectorAll(".checklist-proj").forEach(el => {
+    el.addEventListener("click", () => {
+      const pid = el.dataset.pid;
+      if (pid) openProjectModal(doc, pid);
+    });
+  });
+}
+
+// ───── Section B: 이번 면담 (Work/Career·Support) ─────
 function renderMeeting(doc) {
   const notes = getNotes(doc);
   const projects = getProjects(doc);
@@ -1082,6 +1223,7 @@ function renderMeeting(doc) {
       `}
     </div>
 
+    ${renderMeetingChecklist(doc)}
 
     <div class="agenda-grid">
       <div class="agenda-col">
@@ -1163,6 +1305,43 @@ function renderMeeting(doc) {
       const el = document.getElementById(`${id}-${doc}`);
       if (el) el.addEventListener("input", e => { m.career[k] = e.target.value; markDirty(); });
     });
+
+    // 🎯 이번 회차 점검 위젯 — 체크박스 토글 + 프로젝트명 클릭(모달)
+    const $cl = document.getElementById(`meetingChecklist-${doc}`);
+    if ($cl) {
+      $cl.querySelectorAll("[data-act=ck-tac-done]").forEach(cb => {
+        cb.addEventListener("change", () => {
+          const li = cb.closest("li");
+          if (!li) return;
+          const pid = li.dataset.pid;
+          const tid = li.dataset.tid;
+          const p = getProject(doc, pid);
+          const t = p?.tactics?.find(x => x.id === tid);
+          if (!t) return;
+          t.done = cb.checked;
+          t.done_date = t.done ? todayStr() : "";
+          li.classList.toggle('done', cb.checked);
+          markDirty();
+          renderBoard(doc);
+          // 위젯 통계만 부분 갱신
+          const $cl2 = document.getElementById(`meetingChecklist-${doc}`);
+          if ($cl2) {
+            const wasOpen = $cl2.hasAttribute("open");
+            $cl2.outerHTML = renderMeetingChecklist(doc);
+            const $cl3 = document.getElementById(`meetingChecklist-${doc}`);
+            if ($cl3 && !wasOpen) $cl3.removeAttribute("open");
+            // 핸들러 재부착 (자기 자신 호출 회피 위해 재호출 대신 직접 wire)
+            wireMeetingChecklist(doc);
+          }
+        });
+      });
+      $cl.querySelectorAll(".checklist-proj").forEach(el => {
+        el.addEventListener("click", () => {
+          const pid = el.dataset.pid;
+          if (pid) openProjectModal(doc, pid);
+        });
+      });
+    }
     $sec.querySelectorAll("[data-action]").forEach(btn => {
       btn.addEventListener("click", () => handleSectionAction(doc, btn.dataset.action));
     });
@@ -2241,20 +2420,20 @@ function openProjectModal(doc, pid) {
         <select data-act="m-tac-week" class="tac-week-mini" title="다른 주차로 이동">${weekOpts(w)}</select>
         <button class="del-mini" data-act="m-tac-del">✕</button>
       </li>`).join("");
-    // 현재 주는 자동 펼침, 나머지는 접힘
+    // 개별 토글 제거 — 외부 ⚡ 주간 액션 토글만 유지. 각 박스는 항상 펼쳐진 상태.
     return `
-      <details class="week-box ${isCurrent?'current':''} ${total===0?'empty':''}" ${isCurrent?'open':''}>
-        <summary class="week-box-header">
+      <div class="week-box ${isCurrent?'current':''} ${total===0?'empty':''}">
+        <div class="week-box-header">
           <span class="week-label">${label}</span>
           ${dateRange ? `<span class="week-date">${dateRange}</span>` : ''}
           ${isCurrent ? `<span class="week-now">🔵 현재 주</span>` : ''}
           <span style="margin-left:auto;">${ratio}</span>
-        </summary>
+        </div>
         <ul class="week-tactics">${items}</ul>
         <div class="week-add">
           <input type="text" data-act="m-tac-add-text" data-week="${w}" placeholder="${label} 액션 추가 (Enter)">
         </div>
-      </details>`;
+      </div>`;
   };
 
   const modalPlanHtml = READONLY
