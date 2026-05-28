@@ -296,6 +296,55 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
              transition:background .15s; line-height:1.4; }
 .tac-text:hover { background:var(--panel3); }
 .tac-text:focus { background:var(--panel3); outline:1px solid var(--accent); }
+
+/* 측정 지표 리스트 (모달) */
+.metrics-list { list-style:none; padding:0; margin:0 0 6px; }
+.metrics-list li.metric-item { display:flex; align-items:center; gap:8px;
+                                 padding:5px 0; border-bottom:1px dashed var(--border);
+                                 font-size:13px; }
+.metrics-list li.metric-item:last-child { border-bottom:none; }
+.metric-text { flex:1; padding:2px 6px; border-radius:4px; outline:none; cursor:text;
+                line-height:1.4; transition:background .15s; }
+.metric-text:hover { background:var(--panel3); }
+.metric-text:focus { background:var(--panel3); outline:1px solid var(--accent); }
+.metric-add { display:flex; gap:6px; align-items:center; margin-top:8px;
+               padding-top:8px; border-top:1px dashed var(--border); }
+.metric-add input[type=text] { flex:1; background:var(--panel3); color:var(--text);
+                                 border:1px solid var(--border); border-radius:4px;
+                                 padding:5px 9px; font-size:12px; }
+.metric-add input[type=text]:focus { outline:1px solid var(--accent); border-color:var(--accent); }
+
+/* 주차 박스 그리드 (모달) */
+.weeks-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+               gap:10px; }
+.week-box { background:var(--panel2); border:1px solid var(--border);
+             border-radius:8px; padding:10px 12px; transition:all .15s; }
+.week-box.empty { opacity:0.7; }
+.week-box.current { background:rgba(56,189,248,0.12); border-color:var(--accent);
+                     box-shadow:0 0 0 1px var(--accent), 0 2px 8px rgba(56,189,248,0.2);
+                     opacity:1; }
+.week-box-header { display:flex; align-items:center; gap:8px; font-size:12px;
+                    padding-bottom:7px; border-bottom:1px solid var(--border);
+                    margin-bottom:8px; }
+.week-label { font-weight:700; color:var(--text); font-size:13px; }
+.week-date { color:var(--muted); font-size:11px; }
+.week-now { color:var(--accent); font-weight:700; font-size:11px; }
+.week-mini-stat { font-size:11px; color:var(--muted); font-weight:600; }
+.week-mini-stat.full { color:#86efac; }
+.week-mini-stat.empty { font-style:italic; }
+.week-tactics { list-style:none; padding:0; margin:0; }
+.week-tactics li.tactic-item { display:flex; align-items:center; gap:6px;
+                                 padding:4px 0; border-bottom:1px dashed var(--border);
+                                 font-size:13px; }
+.week-tactics li.tactic-item:last-child { border-bottom:none; }
+.tac-week-mini { background:var(--panel3); color:var(--muted); border:1px solid var(--border);
+                  border-radius:4px; padding:1px 4px; font-size:10px;
+                  min-width:60px; cursor:pointer; }
+.week-add { margin-top:8px; padding-top:6px; border-top:1px dashed var(--border); }
+.week-add input { width:100%; background:var(--panel3); color:var(--text);
+                   border:1px dashed var(--border2); border-radius:4px;
+                   padding:5px 8px; font-size:12px; }
+.week-add input:focus { outline:1px solid var(--accent); border-color:var(--accent); }
 .card-prio-select, .card-mood-select {
   background:var(--panel2); color:var(--text); border:1px solid var(--border);
   border-radius:10px; padding:2px 6px; font-size:11px; font-weight:700;
@@ -538,7 +587,8 @@ function newProject() {
     start_date: "",
     end_date: "",
     goal: "",          // 12주 후 도달할 지점
-    metric: "",        // 성공을 어떻게 측정할 것인가
+    metric: "",        // (구버전 호환용. metrics 로 통합)
+    metrics: [],       // 다중 측정 지표 [{id, text}]
     tactics: [],       // 주간 액션 체크리스트
     learnings: [],
   };
@@ -677,6 +727,16 @@ function migrateProject(p) {
   // 12주 계획법
   if (p.goal === undefined) p.goal = "";
   if (p.metric === undefined) p.metric = "";
+  // 측정 지표 다중화 — 구버전 단일 metric 을 metrics 첫 항목으로 이관
+  if (!Array.isArray(p.metrics)) p.metrics = [];
+  if (p.metric && p.metrics.length === 0) {
+    p.metrics.push({ id: genId("me"), text: p.metric });
+    p.metric = "";
+  }
+  p.metrics.forEach(m => {
+    if (!m.id) m.id = genId("me");
+    if (m.text === undefined) m.text = "";
+  });
   if (!Array.isArray(p.tactics)) p.tactics = [];
   p.tactics.forEach(t => {
     if (!t.id) t.id = genId("t");
@@ -686,6 +746,16 @@ function migrateProject(p) {
     if (t.done_date === undefined) t.done_date = "";
   });
   return p;
+}
+
+// ── 12주 계획법 헬퍼: 주차별 날짜 범위 ──
+function weekDateRange(startDateStr, weekNum) {
+  if (!startDateStr || weekNum === 0) return "";
+  const start = new Date(startDateStr);
+  start.setDate(start.getDate() + (weekNum - 1) * 7);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return `${start.getMonth()+1}/${start.getDate()}~${end.getMonth()+1}/${end.getDate()}`;
 }
 
 // ── Tactics 통계·현재 주차 ──
@@ -2100,18 +2170,63 @@ function openProjectModal(doc, pid) {
   // 12주 계획법 — 목표·지표·주간 액션 (모달용)
   const curWk = currentWeekNum(p);
   const tStats = tacticStats(p);
-  const sortedTactics = (p.tactics||[]).slice().sort((a,b) => (a.week||0) - (b.week||0));
   const weekOpts = (selected) => Array.from({length:13}, (_,i) =>
     `<option value="${i}" ${selected===i?"selected":""}>${i===0?'언제든':`W${i}`}</option>`).join("");
+
+  // 주차별 그룹화 (W0~W12, 빈 주차도 항상 표시)
+  const tacticsByWeek = {};
+  for (let w = 0; w <= 12; w++) tacticsByWeek[w] = [];
+  (p.tactics||[]).forEach(t => {
+    const w = (t.week === undefined || t.week === null) ? 0 : t.week;
+    if (tacticsByWeek[w]) tacticsByWeek[w].push(t);
+    else tacticsByWeek[0].push(t);
+  });
+
+  const renderWeekBox = (w) => {
+    const list = tacticsByWeek[w] || [];
+    const done = list.filter(t => t.done).length;
+    const total = list.length;
+    const isCurrent = curWk === w && w !== 0;
+    const label = w === 0 ? "언제든" : `W${w}`;
+    const dateRange = weekDateRange(p.start_date, w);
+    const ratio = total > 0
+      ? `<span class="week-mini-stat ${done===total?'full':''}">${done}/${total}${total>0?` · ${Math.round(done/total*100)}%`:''}</span>`
+      : `<span class="week-mini-stat empty">(비어있음)</span>`;
+    const items = list.map(t => `
+      <li data-tid="${t.id}" class="tactic-item ${t.done ? 'done' : ''}">
+        <input type="checkbox" data-act="m-tac-done" ${t.done ? 'checked' : ''}>
+        <span class="tac-text" data-act="m-tac-text" contenteditable="true" spellcheck="false">${escapeHtml(t.text||"")}</span>
+        <select data-act="m-tac-week" class="tac-week-mini" title="다른 주차로 이동">${weekOpts(w)}</select>
+        <button class="del-mini" data-act="m-tac-del">✕</button>
+      </li>`).join("");
+    return `
+      <div class="week-box ${isCurrent?'current':''} ${total===0?'empty':''}">
+        <div class="week-box-header">
+          <span class="week-label">${label}</span>
+          ${dateRange ? `<span class="week-date">${dateRange}</span>` : ''}
+          ${isCurrent ? `<span class="week-now">🔵 현재 주</span>` : ''}
+          <span style="margin-left:auto;">${ratio}</span>
+        </div>
+        <ul class="week-tactics">${items}</ul>
+        <div class="week-add">
+          <input type="text" data-act="m-tac-add-text" data-week="${w}" placeholder="${label} 액션 추가 (Enter)">
+        </div>
+      </div>`;
+  };
+
   const modalPlanHtml = READONLY
     ? `
       ${p.goal ? `<div class="goal-row"><span class="goal-label">🎯 12주 목표</span><span>${escapeHtml(p.goal)}</span></div>` : ''}
-      ${p.metric ? `<div class="goal-row"><span class="goal-label">📐 측정 지표</span><span>${escapeHtml(p.metric)}</span></div>` : ''}
-      ${sortedTactics.length > 0 ? `<ul class="tactics-list">${sortedTactics.map(t => `
-        <li class="tactic-item ${t.done?'done':''}">
-          ${t.done?'☑':'☐'} <span class="tac-week">${t.week===0?'언제든':`W${t.week}`}</span>
-          <span class="tac-text">${escapeHtml(t.text||"")}</span>
-        </li>`).join("")}</ul>` : ''}
+      ${(p.metrics||[]).length > 0 ? `
+        <div class="goal-row"><span class="goal-label">📐 측정 지표</span></div>
+        <ul class="metrics-list">${p.metrics.map(m => `<li>${escapeHtml(m.text||"")}</li>`).join("")}</ul>` : ''}
+      ${(p.tactics||[]).length > 0 ? `
+        <div class="sub-label">⚡ 주간 액션</div>
+        <ul class="tactics-list">${(p.tactics||[]).slice().sort((a,b) => (a.week||0)-(b.week||0)).map(t => `
+          <li class="tactic-item ${t.done?'done':''}">
+            ${t.done?'☑':'☐'} <span class="tac-week">${t.week===0?'언제든':`W${t.week}`}</span>
+            <span class="tac-text">${escapeHtml(t.text||"")}</span>
+          </li>`).join("")}</ul>` : ''}
     `
     : `
       <div class="goal-metric">
@@ -2120,35 +2235,34 @@ function openProjectModal(doc, pid) {
           <input type="text" id="modalGoal" value="${escapeHtml(p.goal||"")}"
             placeholder="이번 12주 동안 도달할 지점 (예: NPS 7.8 → 8.5, 부원장 1명 채용)">
         </label>
-        <label class="goal-row">
-          <span class="goal-label">📐 측정 지표</span>
-          <input type="text" id="modalMetric" value="${escapeHtml(p.metric||"")}"
-            placeholder="성공을 어떻게 측정할 것인가 (예: 월별 NPS, 클레임 < 1건)">
-        </label>
+        <div class="goal-row">
+          <span class="goal-label">📐 측정 지표 <span style="font-weight:400; color:var(--muted); font-size:10px;">(${(p.metrics||[]).length})</span></span>
+          <div style="flex:1;">
+            <ul class="metrics-list" id="modalMetrics">
+              ${(p.metrics||[]).length === 0
+                ? `<li class="meta" style="border:none; padding:4px 0;">측정 지표를 한 줄씩 추가하세요 (여러 개 가능)</li>`
+                : p.metrics.map(m => `
+                  <li data-mid="${m.id}" class="metric-item">
+                    <span class="metric-text" data-act="m-met-text" contenteditable="true" spellcheck="false">${escapeHtml(m.text||"")}</span>
+                    <button class="del-mini" data-act="m-met-del">✕</button>
+                  </li>`).join("")}
+            </ul>
+            <div class="metric-add">
+              <input type="text" id="modalNewMetricText" placeholder="새 측정 지표 (Enter)">
+              <button id="modalAddMetBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div style="margin-top:12px;">
+      <div style="margin-top:14px;">
         <div class="sub-label" style="margin-bottom:8px;">
           ⚡ 주간 액션 (Tactics)
           ${tStats ? `<span style="font-weight:400; color:var(--muted);"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
           ${curWk ? `<span style="font-weight:400; color:var(--accent); margin-left:8px;"> · 현재 W${curWk}</span>` : ''}
+          ${!p.start_date ? `<span style="font-weight:400; color:var(--bad); margin-left:8px;"> · 시작일을 설정하면 주차별 날짜와 현재 주 자동 표시</span>` : ''}
         </div>
-        <ul class="tactics-list" id="modalTactics">
-          ${sortedTactics.length === 0
-            ? `<li class="meta" style="border:none;">아직 주간 액션 없음. 12주 동안 매주 할 일을 입력하세요.</li>`
-            : sortedTactics.map(t => {
-                const isCurrent = curWk !== null && t.week === curWk;
-                return `<li data-tid="${t.id}" class="tactic-item ${t.done ? 'done' : ''} ${isCurrent ? 'current' : ''}">
-                  <input type="checkbox" data-act="m-tac-done" ${t.done ? 'checked' : ''}>
-                  <select data-act="m-tac-week" class="tac-week">${weekOpts(t.week||0)}</select>
-                  <span class="tac-text" data-act="m-tac-text" contenteditable="true" spellcheck="false">${escapeHtml(t.text||"")}</span>
-                  <button class="del-mini" data-act="m-tac-del">✕</button>
-                </li>`;
-              }).join("")}
-        </ul>
-        <div class="modal-add-learning">
-          <select id="modalNewTacWeek">${weekOpts(curWk||1)}</select>
-          <input type="text" id="modalNewTacText" placeholder="새 주간 액션 (Enter)">
-          <button id="modalAddTacBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
+        <div class="weeks-grid" id="modalWeeks">
+          ${[0,1,2,3,4,5,6,7,8,9,10,11,12].map(renderWeekBox).join("")}
         </div>
       </div>
     `;
@@ -2219,16 +2333,56 @@ function openProjectModal(doc, pid) {
       markDirty(); renderBoard(doc); refreshModalShallow();
     });
 
-    // 🎯 12주 목표 / 📐 측정 지표 (모달)
-    const $mGoal   = document.getElementById("modalGoal");
-    const $mMetric = document.getElementById("modalMetric");
-    if ($mGoal)   $mGoal.addEventListener("input",   () => { p.goal   = $mGoal.value;   markDirty(); });
-    if ($mMetric) $mMetric.addEventListener("input", () => { p.metric = $mMetric.value; markDirty(); });
+    // 🎯 12주 목표 (모달)
+    const $mGoal = document.getElementById("modalGoal");
+    if ($mGoal) $mGoal.addEventListener("input", () => { p.goal = $mGoal.value; markDirty(); });
 
-    // ⚡ 주간 액션 — 토글/주차/텍스트/삭제 (모달)
-    const $mTactics = document.getElementById("modalTactics");
-    if ($mTactics) {
-      $mTactics.querySelectorAll("li.tactic-item[data-tid]").forEach(li => {
+    // 📐 측정 지표 다중 — 편집/삭제/추가
+    const $mMetrics = document.getElementById("modalMetrics");
+    if ($mMetrics) {
+      $mMetrics.querySelectorAll("li.metric-item[data-mid]").forEach(li => {
+        const mid = li.dataset.mid;
+        const me = (p.metrics||[]).find(x => x.id === mid);
+        if (!me) return;
+        const $text = li.querySelector("[data-act=m-met-text]");
+        const $del  = li.querySelector("[data-act=m-met-del]");
+        if ($text) {
+          const commit = () => {
+            const v = $text.innerText.trim();
+            if (v !== (me.text||"")) { me.text = v; markDirty(); }
+          };
+          $text.addEventListener("blur", commit);
+          $text.addEventListener("keydown", e => {
+            if (e.key === "Enter") { e.preventDefault(); $text.blur(); }
+            if (e.key === "Escape") { $text.innerText = me.text||""; $text.blur(); }
+          });
+        }
+        if ($del) $del.addEventListener("click", () => {
+          if (!confirm("이 측정 지표를 삭제할까요?")) return;
+          p.metrics = (p.metrics||[]).filter(x => x.id !== mid);
+          markDirty(); refreshModalShallow();
+        });
+      });
+    }
+    const $mNewMet  = document.getElementById("modalNewMetricText");
+    const $mAddMet  = document.getElementById("modalAddMetBtn");
+    const addModalMet = () => {
+      const v = ($mNewMet?.value || "").trim();
+      if (!v) return;
+      p.metrics = p.metrics || [];
+      p.metrics.push({ id: "me_"+Math.random().toString(16).slice(2,10), text: v });
+      markDirty(); refreshModalShallow();
+    };
+    if ($mAddMet) $mAddMet.addEventListener("click", addModalMet);
+    if ($mNewMet) $mNewMet.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); addModalMet(); }
+    });
+
+    // ⚡ 주간 액션 — 박스 그룹 (모달)
+    const $mWeeks = document.getElementById("modalWeeks");
+    if ($mWeeks) {
+      // 기존 액션 핸들러 (체크/주차변경/텍스트/삭제)
+      $mWeeks.querySelectorAll("li.tactic-item[data-tid]").forEach(li => {
         const tid = li.dataset.tid;
         const t = (p.tactics||[]).find(x => x.id === tid);
         if (!t) return;
@@ -2262,24 +2416,22 @@ function openProjectModal(doc, pid) {
           markDirty(); renderBoard(doc); refreshModalShallow();
         });
       });
+      // 각 주차 박스 안의 추가 input (Enter)
+      $mWeeks.querySelectorAll("[data-act=m-tac-add-text]").forEach(inp => {
+        inp.addEventListener("keydown", e => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          const v = inp.value.trim();
+          if (!v) return;
+          const w = parseInt(inp.dataset.week, 10) || 0;
+          p.tactics = p.tactics || [];
+          p.tactics.push({ id: "t_"+Math.random().toString(16).slice(2,10),
+                           week: w, text: v, done: false, done_date: "" });
+          inp.value = "";
+          markDirty(); renderBoard(doc); refreshModalShallow();
+        });
+      });
     }
-    // Tactic 추가 (모달)
-    const $mNewTW = document.getElementById("modalNewTacWeek");
-    const $mNewTT = document.getElementById("modalNewTacText");
-    const $mAddT  = document.getElementById("modalAddTacBtn");
-    const addModalTac = () => {
-      const v = ($mNewTT?.value || "").trim();
-      if (!v) return;
-      const w = parseInt($mNewTW?.value || "0", 10) || 0;
-      p.tactics = p.tactics || [];
-      p.tactics.push({ id: "t_"+Math.random().toString(16).slice(2,10),
-                       week: w, text: v, done: false, done_date: "" });
-      markDirty(); renderBoard(doc); refreshModalShallow();
-    };
-    if ($mAddT)  $mAddT.addEventListener("click", addModalTac);
-    if ($mNewTT) $mNewTT.addEventListener("keydown", e => {
-      if (e.key === "Enter") { e.preventDefault(); addModalTac(); }
-    });
 
     // ── 인사이트 정리: 모달에서 추가·수정·삭제 ──
     const refreshModal = () => openProjectModal(doc, pid);

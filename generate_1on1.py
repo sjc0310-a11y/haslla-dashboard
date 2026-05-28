@@ -199,7 +199,15 @@ def _migrate_project(p):
     p.setdefault("end_date", "")
     # 12주 계획법 필드
     p.setdefault("goal", "")        # 12주 후 도달할 지점 한 줄
-    p.setdefault("metric", "")      # 성공을 어떻게 측정할 것인가
+    p.setdefault("metric", "")      # (구버전 단일 지표 — metrics 로 이관됨)
+    p.setdefault("metrics", [])     # 다중 측정 지표 [{id, text}]
+    # 단일 metric 이 있고 metrics 가 비었으면 첫 항목으로 이관
+    if p.get("metric") and not p["metrics"]:
+        p["metrics"].append({"id": _new_id("me"), "text": p["metric"]})
+        p["metric"] = ""
+    for m in p["metrics"]:
+        m.setdefault("id", _new_id("me"))
+        m.setdefault("text", "")
     p.setdefault("tactics", [])     # [{id, week:0~12, text, done, done_date}]
     for t in p["tactics"]:
         t.setdefault("id", _new_id("t"))
