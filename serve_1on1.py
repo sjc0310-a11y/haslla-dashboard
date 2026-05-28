@@ -19,9 +19,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import importlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -101,9 +103,15 @@ HOME_HTML = """<!doctype html>
   body { margin:0; font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;
          background:var(--bg); color:var(--text);
          min-height:100vh; display:flex; flex-direction:column; }
-  header { padding:24px 24px 12px; }
+  header { padding:24px 24px 12px; display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; }
   header h1 { margin:0; font-size:24px; font-weight:700; }
   header .sub { color:var(--muted); font-size:13px; margin-top:6px; }
+  .sync-btn { background:#1e293b; color:#38bdf8; border:1px solid #334155;
+              padding:8px 14px; border-radius:8px; font-size:13px; font-weight:600;
+              cursor:pointer; white-space:nowrap; transition:all .15s; }
+  .sync-btn:hover:not(:disabled) { border-color:#38bdf8; }
+  .sync-btn:disabled { opacity:.5; cursor:not-allowed; }
+  .sync-status { font-size:11px; min-height:16px; text-align:right; }
   main { flex:1; padding:20px 24px 40px; max-width:1100px; width:100%; margin:0 auto; }
 
   .doctor-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px;
@@ -136,8 +144,14 @@ HOME_HTML = """<!doctype html>
 </head>
 <body>
 <header>
-  <h1>🏥 하슬라한의원 대시보드 허브</h1>
-  <div class="sub">부원장 선택 후 원하는 화면으로 이동하세요. 선택한 원장은 모든 화면에 자동 적용됩니다.</div>
+  <div style="flex:1; min-width:0;">
+    <h1>🏥 하슬라한의원 대시보드 허브</h1>
+    <div class="sub">부원장 선택 후 원하는 화면으로 이동하세요. 선택한 원장은 모든 화면에 자동 적용됩니다.</div>
+  </div>
+  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
+    <button class="sync-btn" id="syncBtn" onclick="doSync()">🔄 지금 동기화</button>
+    <div class="sync-status" id="syncStatus"></div>
+  </div>
 </header>
 <main>
   <div class="doctor-chips" id="docChips">
@@ -235,6 +249,34 @@ function buildUrl(base) {
 });
 
 renderChips(); updateBadge();
+
+async function doSync() {
+  const btn = document.getElementById("syncBtn");
+  const st  = document.getElementById("syncStatus");
+  btn.disabled = true;
+  btn.textContent = "동기화 중…";
+  st.textContent  = "";
+  try {
+    const r    = await fetch("/admin/sync", {method:"POST"});
+    const data = await r.json();
+    if (data.ok) {
+      st.style.color  = "#22c55e";
+      st.textContent  = `✓ 동기화 완료 ${data.build_time} · 커밋 ${data.commit_hash}`;
+      btn.textContent = "✓ 완료";
+      setTimeout(() => location.reload(), 3000);
+    } else {
+      st.style.color  = "#ef4444";
+      st.textContent  = `✗ ${data.message}`;
+      btn.disabled    = false;
+      btn.textContent = "🔄 지금 동기화";
+    }
+  } catch(e) {
+    st.style.color  = "#ef4444";
+    st.textContent  = `✗ 네트워크 오류: ${e.message}`;
+    btn.disabled    = false;
+    btn.textContent = "🔄 지금 동기화";
+  }
+}
 </script>
 </body>
 </html>
@@ -789,6 +831,56 @@ class Handler(BaseHTTPRequestHandler):
                 shutil.copy2(RETRO_JSON, RETRO_JSON.with_suffix(".json.bak"))
             RETRO_JSON.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             self._serve_bytes(b'{"ok":true}', "application/json; charset=utf-8")
+            return
+
+        if self.path == "/admin/sync":
+            if not self._is_authed():
+                self._serve_error(401, "인증 필요")
+                return
+            try:
+                # 1) git pull origin main
+                pull = subprocess.run(
+                    ["git", "pull", "origin", "main"],
+                    capture_output=True, text=True, cwd=str(ROOT), timeout=30,
+                )
+                if pull.returncode != 0:
+                    raise RuntimeError(f"git pull 실패: {pull.stderr.strip() or pull.stdout.strip()}")
+
+                # 2) 모듈 재로드 (sys.modules 캐시 초기화 후 reload)
+                if "templates_1on1" in sys.modules:
+                    importlib.reload(sys.modules["templates_1on1"])
+                if "generate_1on1" in sys.modules:
+                    importlib.reload(sys.modules["generate_1on1"])
+
+                # 3) 빌드
+                generate_1on1.main()
+
+                # 4) 커밋 해시
+                rev = subprocess.run(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    capture_output=True, text=True, cwd=str(ROOT),
+                )
+                commit_hash = rev.stdout.strip()
+                build_time  = datetime.now().strftime("%H:%M")
+
+                resp = json.dumps({
+                    "ok": True,
+                    "message": "동기화 완료",
+                    "commit_hash": commit_hash,
+                    "build_time": build_time,
+                }, ensure_ascii=False).encode("utf-8")
+                self._serve_bytes(resp, "application/json; charset=utf-8")
+            except Exception as exc:
+                resp = json.dumps(
+                    {"ok": False, "message": str(exc)}, ensure_ascii=False
+                ).encode("utf-8")
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(resp)))
+                for k, v in self._cors_headers():
+                    self.send_header(k, v)
+                self.end_headers()
+                self.wfile.write(resp)
             return
 
         self.send_response(404); self.end_headers()
