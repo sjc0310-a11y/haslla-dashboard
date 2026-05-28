@@ -1264,13 +1264,8 @@ function renderMeeting(doc) {
           ? `<div class="agenda-readonly">${escapeHtml(m.next||"(작성 안 됨)")}</div>`
           : `<textarea class="agenda agenda-big" id="next-${doc}" placeholder="다음 한 달 동안 시도해볼 작은 실험·개선·학습...">${escapeHtml(m.next||"")}</textarea>`}
       </div>
-      <div class="agenda-block">
-        <div class="agenda-label">🤝 내가 뭐 도와줄까?
-          <span class="hint">도움 요청 · 결정 부탁 · 방향 합의 — 자유롭게</span></div>
-        ${READONLY
-          ? `<div class="agenda-readonly">${escapeHtml(m.support_text||"(작성 안 됨)")}</div>`
-          : `<textarea class="agenda agenda-big" id="supportText-${doc}" placeholder="🆘 도움 요청 / 🎯 결정 부탁 / 🧭 방향 합의 — 줄로 구분해서 자유롭게...">${escapeHtml(m.support_text||"")}</textarea>`}
-      </div>
+      <!-- 일반 Support 영역 제거 — 모든 Support 는 프로젝트 카드 모달에서 관리.
+           프로젝트 무관 단발 부탁은 '다음 달 뭐 해볼까' 자유 텍스트에 한 줄로. -->
     </div>
   `;
 
