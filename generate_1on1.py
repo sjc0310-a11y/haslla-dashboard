@@ -349,11 +349,28 @@ TOPNAV_HTML = """<nav style="background:rgba(15,23,42,0.85); border-bottom:1px s
 })();
 </script>"""
 
+# PUBLIC 빌드 시 TOPNAV_HTML 에 적용할 치환 규칙 (로컬 상대 URL → 절대 URL)
+_PUBLIC_NAV_FIXES = {
+    'href="/home"':                                 'href="https://1on1.haslla-admin.com/home"',
+    'data-base="/home"':                            'data-base="https://1on1.haslla-admin.com/home"',
+    'href="/"':                                     'href="https://sjc0310-a11y.github.io/haslla-dashboard/1on1.html"',
+    'data-base="/"':                                'data-base="https://sjc0310-a11y.github.io/haslla-dashboard/1on1.html"',
+    'href="/retro"':                                'href="https://1on1.haslla-admin.com/retro"',
+    'data-base="/retro"':                           'data-base="https://1on1.haslla-admin.com/retro"',
+    # 하이라이트: 로컬에서는 허브 강조 → 공개 페이지에서는 1on1 강조
+    'color:#38bdf8; font-weight:700;" id="navHub"': 'color:#cbd5e1;" id="navHub"',
+    'color:#cbd5e1;" id="navOne"':                  'color:#38bdf8; font-weight:700;" id="navOne"',
+}
 
-def build_html(metrics, state, template, readonly=False):
+
+def build_html(metrics, state, template, readonly=False, public=False):
     now_str = datetime.now().strftime("%Y년 %m월 %d일 %H:%M")
+    topnav = TOPNAV_HTML
+    if public:
+        for old, new in _PUBLIC_NAV_FIXES.items():
+            topnav = topnav.replace(old, new)
     html = template
-    html = html.replace("__TOPNAV__",       TOPNAV_HTML)
+    html = html.replace("__TOPNAV__",       topnav)
     html = html.replace("__GEN_TIME__", now_str)
     html = html.replace("__VICE_DOCTORS__", json.dumps(VICE_DOCTORS, ensure_ascii=False))
     html = html.replace("__DOC_COLORS__",   json.dumps(DOC_COLORS, ensure_ascii=False))
@@ -434,7 +451,7 @@ def main():
 
     OUT_ENC.write_text(json.dumps(enc, ensure_ascii=False, indent=2), encoding="utf-8")
     # 공개 페이지는 PUBLIC_TEMPLATE — 비번 화면 + 복호화 → 동일 PAGE 렌더링(readonly=true)
-    public_html = build_html(metrics, state, PUBLIC_TEMPLATE, readonly=True)  # state는 사용 안 함 (enc.json 통해 옴)
+    public_html = build_html(metrics, state, PUBLIC_TEMPLATE, readonly=True, public=True)  # state는 사용 안 함 (enc.json 통해 옴)
     OUT_PUBLIC.write_text(public_html, encoding="utf-8")
     print(f"[ok] {OUT_PUBLIC.name} + {OUT_ENC.name} 생성 — 비번 길이 {len(password)}자, "
           f"암호문 {len(enc['data'])}자")
