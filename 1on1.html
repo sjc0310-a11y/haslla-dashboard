@@ -905,12 +905,6 @@ function renderMeeting(doc) {
       `}
     </div>
 
-    <div class="topic-section">
-      <div class="agenda-label">🎯 Conversation Topic
-        <span class="hint">이번 면담에서 다룰 프로젝트 선택 (재클릭 해제) · 편집은 아래 보드 카드 펼치기에서</span></div>
-      <div class="topic-picker" id="topicPicker-${doc}">${renderTopicPicker(doc, m)}</div>
-      <div class="topic-cards" id="topicCards-${doc}" hidden>${renderTopicCards(doc, m)}</div>
-    </div>
 
     <div class="agenda-grid">
       <div class="agenda-col">
@@ -1119,6 +1113,7 @@ function renderGeneralSupports(doc, m) {
 function wireTopicPicker(doc) {
   if (READONLY) return;   // 읽기 전용 모드에서는 chip 클릭 비활성
   const $p = document.getElementById(`topicPicker-${doc}`);
+  if (!$p) return;   // Topic 섹션 제거됨 — noop
   $p.querySelectorAll(".chip").forEach(btn => {
     btn.addEventListener("click", () => {
       const m = currentMeeting(doc);
@@ -1127,10 +1122,9 @@ function wireTopicPicker(doc) {
       if (i >= 0) m.topic_projects.splice(i, 1);
       else m.topic_projects.push(pid);
       markDirty();
-      // 부분 다시 렌더 — 토픽 카드만
-      document.getElementById(`topicPicker-${doc}`).innerHTML = renderTopicPicker(doc, m);
-      document.getElementById(`topicCards-${doc}`).innerHTML = renderTopicCards(doc, m);
-      wireTopicPicker(doc); wireTopicCards(doc);
+      // 부분 다시 렌더 — 토픽 칩만 (cards 는 제거됨)
+      const $tp = document.getElementById(`topicPicker-${doc}`);
+      if ($tp) { $tp.innerHTML = renderTopicPicker(doc, m); wireTopicPicker(doc); }
     });
   });
 }
@@ -1138,6 +1132,7 @@ function wireTopicPicker(doc) {
 function wireTopicCards(doc) {
   if (READONLY) return;
   const $c = document.getElementById(`topicCards-${doc}`);
+  if (!$c) return;   // Topic 섹션 제거됨 — noop
   $c.querySelectorAll("[data-act]").forEach(el => {
     const evt = (el.tagName === "INPUT" && el.type === "text") ? "input"
               : (el.tagName === "INPUT" && el.type === "checkbox") ? "change"
@@ -1659,7 +1654,11 @@ function renderCardExpanded(doc, p) {
   const allSupports = [];
   const touchingMeetings = [];
   notes.forEach(m => {
-    if (m.topic_projects?.includes(p.id)) touchingMeetings.push(m);
+    // "다뤄진 면담" 자동 추론: 토픽 마킹 / Support 묶임 / 인사이트가 이 회차에서 추가됨 중 하나라도
+    const hasTopic    = m.topic_projects?.includes(p.id);
+    const hasSupport  = (m.support||[]).some(s => s.project_id === p.id);
+    const hasLearning = (p.learnings||[]).some(l => l.meeting_id === m.id);
+    if (hasTopic || hasSupport || hasLearning) touchingMeetings.push(m);
     (m.support||[]).forEach(s => {
       if (s.project_id === p.id) allSupports.push({...s, _meetingDate: m.date, _meetingId: m.id});
     });
@@ -1789,7 +1788,10 @@ function openProjectModal(doc, pid) {
   const allSupports = [];
   const touchingMeetings = [];
   notes.forEach(m => {
-    if (m.topic_projects?.includes(pid)) touchingMeetings.push(m);
+    const hasTopic    = m.topic_projects?.includes(pid);
+    const hasSupport  = (m.support||[]).some(s => s.project_id === pid);
+    const hasLearning = (p.learnings||[]).some(l => l.meeting_id === m.id);
+    if (hasTopic || hasSupport || hasLearning) touchingMeetings.push(m);
     (m.support||[]).forEach(s => { if (s.project_id === pid) allSupports.push({...s, _meetingDate: m.date, _meetingId: m.id}); });
   });
 
