@@ -314,18 +314,43 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
                                  padding:5px 9px; font-size:12px; }
 .metric-add input[type=text]:focus { outline:1px solid var(--accent); border-color:var(--accent); }
 
+/* 측정 지표 토글 섹션 */
+.metrics-section { background:var(--panel2); border:1px solid var(--border);
+                    border-radius:8px; padding:8px 12px; flex:1; }
+.metrics-summary { cursor:pointer; list-style:none; outline:none;
+                    font-size:12px; font-weight:600; color:var(--muted);
+                    padding:4px 0; user-select:none;
+                    display:flex; align-items:center; gap:6px; }
+.metrics-summary::-webkit-details-marker { display:none; }
+.metrics-summary::before { content:"▶"; font-size:9px; transition:transform .2s;
+                            color:var(--accent); }
+.metrics-section[open] > .metrics-summary::before { transform:rotate(90deg); }
+.metrics-summary:hover { color:var(--text); }
+.metrics-count { color:var(--muted); font-weight:400; font-size:11px; }
+.metrics-section[open] > .metrics-summary { padding-bottom:8px;
+                                             border-bottom:1px dashed var(--border);
+                                             margin-bottom:6px; }
+
 /* 주차 박스 그리드 (모달) */
 .weeks-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
                gap:10px; }
 .week-box { background:var(--panel2); border:1px solid var(--border);
-             border-radius:8px; padding:10px 12px; transition:all .15s; }
+             border-radius:8px; padding:8px 12px; transition:all .15s; }
 .week-box.empty { opacity:0.7; }
 .week-box.current { background:rgba(56,189,248,0.12); border-color:var(--accent);
                      box-shadow:0 0 0 1px var(--accent), 0 2px 8px rgba(56,189,248,0.2);
                      opacity:1; }
 .week-box-header { display:flex; align-items:center; gap:8px; font-size:12px;
-                    padding-bottom:7px; border-bottom:1px solid var(--border);
-                    margin-bottom:8px; }
+                    padding:4px 0; cursor:pointer; user-select:none;
+                    list-style:none; outline:none; }
+.week-box-header::-webkit-details-marker { display:none; }
+.week-box-header::before { content:"▶"; font-size:9px; transition:transform .2s;
+                            color:var(--accent); margin-right:4px; }
+.week-box[open] > .week-box-header { padding-bottom:7px;
+                                       border-bottom:1px solid var(--border);
+                                       margin-bottom:8px; }
+.week-box[open] > .week-box-header::before { transform:rotate(90deg); }
+.week-box:not([open]) > .week-box-header { padding-bottom:4px; }
 .week-label { font-weight:700; color:var(--text); font-size:13px; }
 .week-date { color:var(--muted); font-size:11px; }
 .week-now { color:var(--accent); font-weight:700; font-size:11px; }
@@ -2199,19 +2224,20 @@ function openProjectModal(doc, pid) {
         <select data-act="m-tac-week" class="tac-week-mini" title="다른 주차로 이동">${weekOpts(w)}</select>
         <button class="del-mini" data-act="m-tac-del">✕</button>
       </li>`).join("");
+    // 현재 주는 자동 펼침, 나머지는 접힘
     return `
-      <div class="week-box ${isCurrent?'current':''} ${total===0?'empty':''}">
-        <div class="week-box-header">
+      <details class="week-box ${isCurrent?'current':''} ${total===0?'empty':''}" ${isCurrent?'open':''}>
+        <summary class="week-box-header">
           <span class="week-label">${label}</span>
           ${dateRange ? `<span class="week-date">${dateRange}</span>` : ''}
           ${isCurrent ? `<span class="week-now">🔵 현재 주</span>` : ''}
           <span style="margin-left:auto;">${ratio}</span>
-        </div>
+        </summary>
         <ul class="week-tactics">${items}</ul>
         <div class="week-add">
           <input type="text" data-act="m-tac-add-text" data-week="${w}" placeholder="${label} 액션 추가 (Enter)">
         </div>
-      </div>`;
+      </details>`;
   };
 
   const modalPlanHtml = READONLY
@@ -2235,24 +2261,24 @@ function openProjectModal(doc, pid) {
           <input type="text" id="modalGoal" value="${escapeHtml(p.goal||"")}"
             placeholder="이번 12주 동안 도달할 지점 (예: NPS 7.8 → 8.5, 부원장 1명 채용)">
         </label>
-        <div class="goal-row">
-          <span class="goal-label">📐 측정 지표 <span style="font-weight:400; color:var(--muted); font-size:10px;">(${(p.metrics||[]).length})</span></span>
-          <div style="flex:1;">
-            <ul class="metrics-list" id="modalMetrics">
-              ${(p.metrics||[]).length === 0
-                ? `<li class="meta" style="border:none; padding:4px 0;">측정 지표를 한 줄씩 추가하세요 (여러 개 가능)</li>`
-                : p.metrics.map(m => `
-                  <li data-mid="${m.id}" class="metric-item">
-                    <span class="metric-text" data-act="m-met-text" contenteditable="true" spellcheck="false">${escapeHtml(m.text||"")}</span>
-                    <button class="del-mini" data-act="m-met-del">✕</button>
-                  </li>`).join("")}
-            </ul>
-            <div class="metric-add">
-              <input type="text" id="modalNewMetricText" placeholder="새 측정 지표 (Enter)">
-              <button id="modalAddMetBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
-            </div>
+        <details class="metrics-section" ${(p.metrics||[]).length > 0 ? 'open' : ''}>
+          <summary class="metrics-summary">
+            📐 측정 지표 <span class="metrics-count">(${(p.metrics||[]).length})</span>
+          </summary>
+          <ul class="metrics-list" id="modalMetrics">
+            ${(p.metrics||[]).length === 0
+              ? `<li class="meta" style="border:none; padding:4px 0;">측정 지표를 한 줄씩 추가하세요 (여러 개 가능)</li>`
+              : p.metrics.map(m => `
+                <li data-mid="${m.id}" class="metric-item">
+                  <span class="metric-text" data-act="m-met-text" contenteditable="true" spellcheck="false">${escapeHtml(m.text||"")}</span>
+                  <button class="del-mini" data-act="m-met-del">✕</button>
+                </li>`).join("")}
+          </ul>
+          <div class="metric-add">
+            <input type="text" id="modalNewMetricText" placeholder="새 측정 지표 (Enter)">
+            <button id="modalAddMetBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
           </div>
-        </div>
+        </details>
       </div>
       <div style="margin-top:14px;">
         <div class="sub-label" style="margin-bottom:8px;">
