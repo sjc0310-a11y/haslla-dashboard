@@ -197,6 +197,16 @@ def _migrate_project(p):
     p.setdefault("created", "")
     p.setdefault("start_date", "")
     p.setdefault("end_date", "")
+    # 12주 계획법 필드
+    p.setdefault("goal", "")        # 12주 후 도달할 지점 한 줄
+    p.setdefault("metric", "")      # 성공을 어떻게 측정할 것인가
+    p.setdefault("tactics", [])     # [{id, week:0~12, text, done, done_date}]
+    for t in p["tactics"]:
+        t.setdefault("id", _new_id("t"))
+        t.setdefault("week", 0)
+        t.setdefault("text", "")
+        t.setdefault("done", False)
+        t.setdefault("done_date", "")
     p.setdefault("memo", "")
     return p
 

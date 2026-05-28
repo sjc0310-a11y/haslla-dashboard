@@ -270,6 +270,36 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .card-progress-fill.active   { background:#22c55e; }
 .card-progress-fill.near     { background:#f59e0b; }
 .card-progress-fill.overdue  { background:#ef4444; }
+
+/* 12주 계획법 영역 */
+.tactic-tag { padding:2px 8px; border-radius:8px; font-size:10px; font-weight:700;
+               background:var(--panel3); color:var(--muted); }
+.tactic-tag.active   { background:#064e3b; color:#86efac; }
+.tactic-tag.near     { background:#78350f; color:#fed7aa; }
+.tactic-tag.pending  { background:#1e3a8a; color:#bfdbfe; }
+.goal-metric { display:flex; flex-direction:column; gap:8px; }
+.goal-row { display:flex; gap:8px; align-items:center; }
+.goal-label { font-size:11px; font-weight:600; color:var(--muted); min-width:75px; }
+.goal-row input { flex:1; background:var(--panel3); color:var(--text);
+                   border:1px solid var(--border); border-radius:4px;
+                   padding:6px 10px; font-size:13px; }
+.goal-row input:focus { outline:1px solid var(--accent); border-color:var(--accent); }
+.tactics-list { list-style:none; padding:0; margin:0; }
+.tactics-list li.tactic-item { display:flex; align-items:center; gap:8px;
+                                 padding:6px 0; border-bottom:1px dashed var(--border);
+                                 font-size:13px; }
+.tactics-list li.tactic-item:last-child { border-bottom:none; }
+.tactics-list li.tactic-item.done .tac-text { text-decoration:line-through; opacity:0.55; }
+.tactics-list li.tactic-item.current { background:rgba(56,189,248,0.08);
+                                         border-left:3px solid var(--accent);
+                                         padding-left:6px; border-radius:4px; }
+.tac-week { background:var(--panel3); color:var(--accent); border:1px solid var(--border);
+             border-radius:4px; padding:2px 6px; font-size:11px; font-weight:700;
+             min-width:64px; cursor:pointer; }
+.tac-text { flex:1; padding:2px 6px; border-radius:4px; outline:none; cursor:text;
+             transition:background .15s; line-height:1.4; }
+.tac-text:hover { background:var(--panel3); }
+.tac-text:focus { background:var(--panel3); outline:1px solid var(--accent); }
 .card-prio-select, .card-mood-select {
   background:var(--panel2); color:var(--text); border:1px solid var(--border);
   border-radius:10px; padding:2px 6px; font-size:11px; font-weight:700;
@@ -436,8 +466,14 @@ function newProject() {
     memo: "",
     start_date: "",
     end_date: "",
+    goal: "",          // 12주 후 도달할 지점
+    metric: "",        // 성공을 어떻게 측정할 것인가
+    tactics: [],       // 주간 액션 체크리스트
     learnings: [],
   };
+}
+function newTactic(week) {
+  return { id: genId("t"), week: week||0, text: "", done: false, done_date: "" };
 }
 function newSupport(projectId) {
   return { id: genId("s"), type:"Help", need:"", reviewed:false, project_id: projectId || null };
@@ -567,7 +603,34 @@ function migrateProject(p) {
   if (!p.memo) p.memo = "";
   if (p.start_date === undefined) p.start_date = "";
   if (p.end_date === undefined) p.end_date = "";
+  // 12주 계획법
+  if (p.goal === undefined) p.goal = "";
+  if (p.metric === undefined) p.metric = "";
+  if (!Array.isArray(p.tactics)) p.tactics = [];
+  p.tactics.forEach(t => {
+    if (!t.id) t.id = genId("t");
+    if (t.week === undefined) t.week = 0;
+    if (t.text === undefined) t.text = "";
+    if (t.done === undefined) t.done = false;
+    if (t.done_date === undefined) t.done_date = "";
+  });
   return p;
+}
+
+// ── Tactics 통계·현재 주차 ──
+function tacticStats(p) {
+  const list = p.tactics || [];
+  if (list.length === 0) return null;
+  const done = list.filter(t => t.done).length;
+  return { done, total: list.length, pct: Math.round(done/list.length*100) };
+}
+function currentWeekNum(p) {
+  if (!p.start_date) return null;
+  const start = new Date(p.start_date);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = Math.floor((today - start) / (24*60*60*1000));
+  if (days < 0) return null;
+  return Math.floor(days/7) + 1;
 }
 
 // ── 12주 계획 헬퍼 ──
@@ -1255,6 +1318,63 @@ function wireCardExpanded(doc, pid, $root) {
     markDirty(); refresh();
   });
 
+  // 🎯 목표 / 📐 지표
+  const $goal   = $root.querySelector("[data-act=cx-goal]");
+  const $metric = $root.querySelector("[data-act=cx-metric]");
+  if ($goal)   $goal.addEventListener("input",   () => { p.goal   = $goal.value;   markDirty(); });
+  if ($metric) $metric.addEventListener("input", () => { p.metric = $metric.value; markDirty(); });
+
+  // ⚡ Tactics — 각 항목 토글/주차변경/텍스트편집/삭제
+  $root.querySelectorAll("li.tactic-item[data-tid]").forEach(li => {
+    const tid = li.dataset.tid;
+    const t = (p.tactics||[]).find(x => x.id === tid);
+    if (!t) return;
+    const $done = li.querySelector("[data-act=cx-tac-done]");
+    const $week = li.querySelector("[data-act=cx-tac-week]");
+    const $text = li.querySelector("[data-act=cx-tac-text]");
+    const $del  = li.querySelector("[data-act=cx-tac-del]");
+    if ($done) $done.addEventListener("change", () => {
+      t.done = $done.checked;
+      t.done_date = t.done ? todayStr() : "";
+      markDirty(); renderBoard(doc); refresh();
+    });
+    if ($week) $week.addEventListener("change", () => {
+      t.week = parseInt($week.value, 10) || 0;
+      markDirty(); refresh();
+    });
+    if ($text) {
+      const commit = () => {
+        const v = $text.innerText.trim();
+        if (v !== (t.text||"")) { t.text = v; markDirty(); }
+      };
+      $text.addEventListener("blur", commit);
+      $text.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); $text.blur(); }
+        if (e.key === "Escape") { $text.innerText = t.text||""; $text.blur(); }
+      });
+    }
+    if ($del) $del.addEventListener("click", () => {
+      if (!confirm("이 주간 액션을 삭제할까요?")) return;
+      p.tactics = (p.tactics||[]).filter(x => x.id !== tid);
+      markDirty(); renderBoard(doc); refresh();
+    });
+  });
+  // Tactic 추가
+  const $newTW = $root.querySelector("[data-act=cx-tac-new-week]");
+  const $newTT = $root.querySelector("[data-act=cx-tac-new-text]");
+  const $addT  = $root.querySelector("[data-act=cx-tac-add]");
+  const addTac = () => {
+    const v = ($newTT?.value || "").trim();
+    if (!v) return;
+    const w = parseInt($newTW?.value || "0", 10) || 0;
+    p.tactics = p.tactics || [];
+    p.tactics.push({ id: "t_"+Math.random().toString(16).slice(2,10),
+                     week: w, text: v, done: false, done_date: "" });
+    markDirty(); renderBoard(doc); refresh();
+  };
+  if ($addT)  $addT.addEventListener("click", addTac);
+  if ($newTT) $newTT.addEventListener("keydown", e => { if (e.key==="Enter") { e.preventDefault(); addTac(); } });
+
   // 인사이트 — 각 항목 편집/삭제
   $root.querySelectorAll("li[data-idx]").forEach(li => {
     const i = parseInt(li.dataset.idx);
@@ -1535,12 +1655,15 @@ function renderKanbanCard(doc, p) {
     ? `<div class="recent">💡 ${escapeHtml(recent.text)}</div>` : "";
   const dragAttr = READONLY ? '' : 'draggable="true"';
 
-  // 일정·진행 표시
+  // 일정·진행 표시 + 액션 달성률
   const prog = projectProgress(p);
-  const scheduleHtml = (p.start_date || p.end_date)
+  const tStats = tacticStats(p);
+  const scheduleHtml = (p.start_date || p.end_date || tStats)
     ? `<div class="card-schedule">
-         <span class="sched-range">📅 ${shortDate(p.start_date)} → ${shortDate(p.end_date)}</span>
+         ${(p.start_date || p.end_date)
+            ? `<span class="sched-range">📅 ${shortDate(p.start_date)} → ${shortDate(p.end_date)}</span>` : ''}
          ${prog ? `<span class="week-tag ${prog.state}">${prog.text}</span>` : ''}
+         ${tStats ? `<span class="tactic-tag ${tStats.pct>=85?'active':tStats.pct>=50?'near':'pending'}">⚡ ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
          ${prog && prog.pct !== null ? `<div class="card-progress"><div class="card-progress-fill ${prog.state}" style="width:${prog.pct}%"></div></div>` : ''}
        </div>` : '';
 
@@ -1656,6 +1779,60 @@ function renderCardExpanded(doc, p) {
   const statusOpts = ["Inbox","In Progress","Done"].map(v =>
     `<option value="${v}" ${p.status===v?"selected":""}>${v}</option>`).join("");
 
+  // 12주 계획법: 목표·지표·주간 액션
+  const curWk = currentWeekNum(p);
+  const tStats = tacticStats(p);
+  const goalMetricHtml = `
+    <div class="card-section goal-metric">
+      <label class="goal-row">
+        <span class="goal-label">🎯 12주 목표</span>
+        <input type="text" data-act="cx-goal" value="${escapeHtml(p.goal||"")}"
+          placeholder="이번 12주 동안 도달할 지점 (예: NPS 7.8 → 8.5, 부원장 1명 채용)">
+      </label>
+      <label class="goal-row">
+        <span class="goal-label">📐 측정 지표</span>
+        <input type="text" data-act="cx-metric" value="${escapeHtml(p.metric||"")}"
+          placeholder="성공을 어떻게 측정할 것인가 (예: 월별 NPS, 클레임 < 1건)">
+      </label>
+    </div>
+  `;
+
+  const sortedTactics = (p.tactics||[]).slice().sort((a,b) => {
+    const wa = a.week||0, wb = b.week||0;
+    if (wa !== wb) return wa - wb;
+    return 0;
+  });
+  const weekOpts = (selected) => Array.from({length:13}, (_,i) =>
+    `<option value="${i}" ${selected===i?"selected":""}>${i===0?'언제든':`W${i}`}</option>`).join("");
+
+  const tacticsHtml = `
+    <div class="card-section">
+      <div class="sub-label">
+        ⚡ 주간 액션 (Tactics)
+        ${tStats ? `<span style="font-weight:400; color:var(--muted);"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
+        ${curWk ? `<span style="font-weight:400; color:var(--accent); margin-left:8px;"> · 현재 W${curWk}</span>` : ''}
+      </div>
+      <ul class="tactics-list">
+        ${sortedTactics.length === 0
+          ? `<li class="meta" style="border:none;">아직 주간 액션 없음. 12주 동안 매주 할 일을 입력하세요.</li>`
+          : sortedTactics.map(t => {
+              const isCurrent = curWk !== null && t.week === curWk;
+              return `<li data-tid="${t.id}" class="tactic-item ${t.done ? 'done' : ''} ${isCurrent ? 'current' : ''}">
+                <input type="checkbox" data-act="cx-tac-done" ${t.done ? 'checked' : ''}>
+                <select data-act="cx-tac-week" class="tac-week">${weekOpts(t.week||0)}</select>
+                <span class="tac-text" data-act="cx-tac-text" contenteditable="true" spellcheck="false">${escapeHtml(t.text||"")}</span>
+                <button class="del-mini" data-act="cx-tac-del">✕</button>
+              </li>`;
+            }).join("")}
+      </ul>
+      <div class="modal-add-learning">
+        <select data-act="cx-tac-new-week">${weekOpts(curWk||1)}</select>
+        <input type="text" data-act="cx-tac-new-text" placeholder="새 주간 액션 (Enter — 이번 주에 할 일·실험)">
+        <button class="add-btn" data-act="cx-tac-add" style="margin-top:0;">+ 추가</button>
+      </div>
+    </div>
+  `;
+
   return `
     <div class="card-section-row">
       <label class="modal-meta-field"><span>상태</span>
@@ -1670,6 +1847,8 @@ function renderCardExpanded(doc, p) {
       ${p.created ? `<span class="meta" style="font-size:11px;">생성 ${p.created}</span>` : ''}
       <button class="del-btn" data-act="cx-del-proj" style="margin-left:auto; font-size:11px;">🗑 프로젝트 삭제</button>
     </div>
+    ${goalMetricHtml}
+    ${tacticsHtml}
     <div class="card-section">
       <div class="sub-label">💡 모든 인사이트 정리 <span style="font-weight:400; color:var(--muted);">(${(p.learnings||[]).length})</span></div>
       ${learningsHtml}
