@@ -307,8 +307,9 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
                 line-height:1.4; transition:background .15s; }
 .metric-text:hover { background:var(--panel3); }
 .metric-text:focus { background:var(--panel3); outline:1px solid var(--accent); }
-.metric-add { display:flex; gap:6px; align-items:center; margin-top:8px;
-               padding-top:8px; border-top:1px dashed var(--border); }
+.metric-add { display:flex; gap:6px; align-items:center;
+               margin-bottom:8px; padding-bottom:8px;
+               border-bottom:1px dashed var(--border); }
 .metric-add input[type=text] { flex:1; background:var(--panel3); color:var(--text);
                                  border:1px solid var(--border); border-radius:4px;
                                  padding:5px 9px; font-size:12px; }
@@ -2281,6 +2282,10 @@ function openProjectModal(doc, pid) {
           <summary class="metrics-summary">
             📐 측정 지표 <span class="metrics-count">(${(p.metrics||[]).length})</span>
           </summary>
+          <div class="metric-add">
+            <input type="text" id="modalNewMetricText" placeholder="새 측정 지표 (Enter)">
+            <button id="modalAddMetBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
+          </div>
           <ul class="metrics-list" id="modalMetrics">
             ${(p.metrics||[]).length === 0
               ? `<li class="meta" style="border:none; padding:4px 0;">측정 지표를 한 줄씩 추가하세요 (여러 개 가능)</li>`
@@ -2290,10 +2295,6 @@ function openProjectModal(doc, pid) {
                   <button class="del-mini" data-act="m-met-del">✕</button>
                 </li>`).join("")}
           </ul>
-          <div class="metric-add">
-            <input type="text" id="modalNewMetricText" placeholder="새 측정 지표 (Enter)">
-            <button id="modalAddMetBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
-          </div>
         </details>
       </div>
       <details class="tactics-section" open style="margin-top:14px;">
