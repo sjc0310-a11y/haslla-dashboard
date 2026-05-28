@@ -116,7 +116,7 @@ main { padding:24px; max-width:1400px; margin:0 auto; }
 .topic-card-header input[type=text]:focus { background:var(--panel3); border-radius:4px; padding:4px; }
 .topic-card-body { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
 @media (max-width:900px) { .topic-card-body { grid-template-columns:1fr; } }
-.sub-label { color:var(--muted); font-size:12px; font-weight:600;
+.sub-label { color:var(--text); font-size:15px; font-weight:700;
               margin-bottom:8px; display:flex; align-items:center; gap:6px; }
 .learnings-list { list-style:none; padding:0; margin:0; max-height:240px; overflow-y:auto; }
 .learnings-list li { padding:6px 0; border-bottom:1px dashed var(--border);
@@ -2089,7 +2089,7 @@ function renderCardExpanded(doc, p) {
   const tacticsHtml = `
     <div class="card-section">
       <div class="sub-label">
-        ⚡ 주간 액션 (Tactics)
+        ⚡ 주간 액션
         ${tStats ? `<span style="font-weight:400; color:var(--muted);"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
         ${curWk ? `<span style="font-weight:400; color:var(--accent); margin-left:8px;"> · 현재 W${curWk}</span>` : ''}
       </div>
