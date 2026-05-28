@@ -653,10 +653,12 @@ function renderPages() {
 }
 
 function renderDocShell(doc) {
+  // 흐름: 객관 지표 → 프로젝트 보드(오늘 다룰 In Progress) → 이번 면담(메타+Work/Career+일반 Support)
+  //       → Follow-up → 과거 면담 기록
   return `
     <section class="section" id="metrics-${doc}"></section>
-    <section class="section" id="meeting-${doc}"></section>
     <section class="section" id="board-${doc}"></section>
+    <section class="section" id="meeting-${doc}"></section>
     <section class="section" id="followup-${doc}"></section>
     <section class="section history" id="history-${doc}"></section>
   `;
