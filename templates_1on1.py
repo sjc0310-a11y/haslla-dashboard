@@ -1697,8 +1697,9 @@ function renderKanbanCard(doc, p) {
       </div>
       ${scheduleHtml}
       ${recentHtml}
-      <button class="card-expand-btn" data-act="card-toggle">▼ 자세히 (인사이트·Support·면담)</button>
-      <div class="card-expanded" hidden>${renderCardExpanded(doc, p)}</div>
+      <!-- 카드 펼침 영역은 비활성 — 모달로 통합됨. 코드는 보존 -->
+      <!--<button class="card-expand-btn" data-act="card-toggle">▼ 자세히</button>-->
+      <!--<div class="card-expanded" hidden>${renderCardExpanded(doc, p)}</div>-->
     </div>`;
 }
 
@@ -2025,7 +2026,67 @@ function openProjectModal(doc, pid) {
     <span>· 인사이트 ${(p.learnings||[]).length} · Support ${allSupports.length} · 면담 ${touchingMeetings.length}회</span>
     ${READONLY ? '' : `<button class="del-btn" data-pid="${p.id}" id="modalDeleteBtn" style="margin-left:auto;">🗑 프로젝트 삭제</button>`}
   `;
+  // 12주 계획법 — 목표·지표·주간 액션 (모달용)
+  const curWk = currentWeekNum(p);
+  const tStats = tacticStats(p);
+  const sortedTactics = (p.tactics||[]).slice().sort((a,b) => (a.week||0) - (b.week||0));
+  const weekOpts = (selected) => Array.from({length:13}, (_,i) =>
+    `<option value="${i}" ${selected===i?"selected":""}>${i===0?'언제든':`W${i}`}</option>`).join("");
+  const modalPlanHtml = READONLY
+    ? `
+      ${p.goal ? `<div class="goal-row"><span class="goal-label">🎯 12주 목표</span><span>${escapeHtml(p.goal)}</span></div>` : ''}
+      ${p.metric ? `<div class="goal-row"><span class="goal-label">📐 측정 지표</span><span>${escapeHtml(p.metric)}</span></div>` : ''}
+      ${sortedTactics.length > 0 ? `<ul class="tactics-list">${sortedTactics.map(t => `
+        <li class="tactic-item ${t.done?'done':''}">
+          ${t.done?'☑':'☐'} <span class="tac-week">${t.week===0?'언제든':`W${t.week}`}</span>
+          <span class="tac-text">${escapeHtml(t.text||"")}</span>
+        </li>`).join("")}</ul>` : ''}
+    `
+    : `
+      <div class="goal-metric">
+        <label class="goal-row">
+          <span class="goal-label">🎯 12주 목표</span>
+          <input type="text" id="modalGoal" value="${escapeHtml(p.goal||"")}"
+            placeholder="이번 12주 동안 도달할 지점 (예: NPS 7.8 → 8.5, 부원장 1명 채용)">
+        </label>
+        <label class="goal-row">
+          <span class="goal-label">📐 측정 지표</span>
+          <input type="text" id="modalMetric" value="${escapeHtml(p.metric||"")}"
+            placeholder="성공을 어떻게 측정할 것인가 (예: 월별 NPS, 클레임 < 1건)">
+        </label>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="sub-label" style="margin-bottom:8px;">
+          ⚡ 주간 액션 (Tactics)
+          ${tStats ? `<span style="font-weight:400; color:var(--muted);"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
+          ${curWk ? `<span style="font-weight:400; color:var(--accent); margin-left:8px;"> · 현재 W${curWk}</span>` : ''}
+        </div>
+        <ul class="tactics-list" id="modalTactics">
+          ${sortedTactics.length === 0
+            ? `<li class="meta" style="border:none;">아직 주간 액션 없음. 12주 동안 매주 할 일을 입력하세요.</li>`
+            : sortedTactics.map(t => {
+                const isCurrent = curWk !== null && t.week === curWk;
+                return `<li data-tid="${t.id}" class="tactic-item ${t.done ? 'done' : ''} ${isCurrent ? 'current' : ''}">
+                  <input type="checkbox" data-act="m-tac-done" ${t.done ? 'checked' : ''}>
+                  <select data-act="m-tac-week" class="tac-week">${weekOpts(t.week||0)}</select>
+                  <span class="tac-text" data-act="m-tac-text" contenteditable="true" spellcheck="false">${escapeHtml(t.text||"")}</span>
+                  <button class="del-mini" data-act="m-tac-del">✕</button>
+                </li>`;
+              }).join("")}
+        </ul>
+        <div class="modal-add-learning">
+          <select id="modalNewTacWeek">${weekOpts(curWk||1)}</select>
+          <input type="text" id="modalNewTacText" placeholder="새 주간 액션 (Enter)">
+          <button id="modalAddTacBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
+        </div>
+      </div>
+    `;
+
   document.getElementById("modalBody").innerHTML = `
+    <div class="modal-section">
+      <h3>🎯 12주 계획</h3>
+      ${modalPlanHtml}
+    </div>
     <div class="modal-section">
       <h3>💡 모든 인사이트 정리</h3>
       ${learningsHtml}
@@ -2085,6 +2146,68 @@ function openProjectModal(doc, pid) {
       if (!p.start_date) { alert("먼저 시작일을 설정하세요."); return; }
       p.end_date = addDays(p.start_date, 84);
       markDirty(); renderBoard(doc); refreshModalShallow();
+    });
+
+    // 🎯 12주 목표 / 📐 측정 지표 (모달)
+    const $mGoal   = document.getElementById("modalGoal");
+    const $mMetric = document.getElementById("modalMetric");
+    if ($mGoal)   $mGoal.addEventListener("input",   () => { p.goal   = $mGoal.value;   markDirty(); });
+    if ($mMetric) $mMetric.addEventListener("input", () => { p.metric = $mMetric.value; markDirty(); });
+
+    // ⚡ 주간 액션 — 토글/주차/텍스트/삭제 (모달)
+    const $mTactics = document.getElementById("modalTactics");
+    if ($mTactics) {
+      $mTactics.querySelectorAll("li.tactic-item[data-tid]").forEach(li => {
+        const tid = li.dataset.tid;
+        const t = (p.tactics||[]).find(x => x.id === tid);
+        if (!t) return;
+        const $done = li.querySelector("[data-act=m-tac-done]");
+        const $week = li.querySelector("[data-act=m-tac-week]");
+        const $text = li.querySelector("[data-act=m-tac-text]");
+        const $del  = li.querySelector("[data-act=m-tac-del]");
+        if ($done) $done.addEventListener("change", () => {
+          t.done = $done.checked;
+          t.done_date = t.done ? todayStr() : "";
+          markDirty(); renderBoard(doc); refreshModalShallow();
+        });
+        if ($week) $week.addEventListener("change", () => {
+          t.week = parseInt($week.value, 10) || 0;
+          markDirty(); refreshModalShallow();
+        });
+        if ($text) {
+          const commit = () => {
+            const v = $text.innerText.trim();
+            if (v !== (t.text||"")) { t.text = v; markDirty(); }
+          };
+          $text.addEventListener("blur", commit);
+          $text.addEventListener("keydown", e => {
+            if (e.key === "Enter") { e.preventDefault(); $text.blur(); }
+            if (e.key === "Escape") { $text.innerText = t.text||""; $text.blur(); }
+          });
+        }
+        if ($del) $del.addEventListener("click", () => {
+          if (!confirm("이 주간 액션을 삭제할까요?")) return;
+          p.tactics = (p.tactics||[]).filter(x => x.id !== tid);
+          markDirty(); renderBoard(doc); refreshModalShallow();
+        });
+      });
+    }
+    // Tactic 추가 (모달)
+    const $mNewTW = document.getElementById("modalNewTacWeek");
+    const $mNewTT = document.getElementById("modalNewTacText");
+    const $mAddT  = document.getElementById("modalAddTacBtn");
+    const addModalTac = () => {
+      const v = ($mNewTT?.value || "").trim();
+      if (!v) return;
+      const w = parseInt($mNewTW?.value || "0", 10) || 0;
+      p.tactics = p.tactics || [];
+      p.tactics.push({ id: "t_"+Math.random().toString(16).slice(2,10),
+                       week: w, text: v, done: false, done_date: "" });
+      markDirty(); renderBoard(doc); refreshModalShallow();
+    };
+    if ($mAddT)  $mAddT.addEventListener("click", addModalTac);
+    if ($mNewTT) $mNewTT.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); addModalTac(); }
     });
 
     // ── 인사이트 정리: 모달에서 추가·수정·삭제 ──
