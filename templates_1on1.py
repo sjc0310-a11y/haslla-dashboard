@@ -335,6 +335,22 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
                                              border-bottom:1px dashed var(--border);
                                              margin-bottom:6px; }
 
+/* 주간 액션 외부 토글 (모달) */
+.tactics-section { background:transparent; border:none; padding:0; }
+.tactics-summary { cursor:pointer; list-style:none; outline:none; user-select:none;
+                    font-size:13px; font-weight:700; color:var(--text);
+                    padding:8px 0; margin-bottom:10px;
+                    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+                    border-bottom:1px solid var(--border); }
+.tactics-summary::-webkit-details-marker { display:none; }
+.tactics-summary::before { content:"▶"; font-size:10px; transition:transform .2s;
+                            color:var(--accent); }
+.tactics-section[open] > .tactics-summary::before { transform:rotate(90deg); }
+.tactics-summary:hover { color:var(--accent); }
+.tactics-stat { font-weight:500; color:var(--muted); font-size:12px; }
+.tactics-current { font-weight:600; color:var(--accent); font-size:12px; }
+.tactics-warn { font-weight:400; color:var(--bad); font-size:11px; margin-left:8px; }
+
 /* 주차 박스 그리드 (모달) */
 .weeks-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
                gap:10px; }
@@ -2209,17 +2225,17 @@ function openProjectModal(doc, pid) {
           </div>
         </details>
       </div>
-      <div style="margin-top:14px;">
-        <div class="sub-label" style="margin-bottom:8px;">
+      <details class="tactics-section" open style="margin-top:14px;">
+        <summary class="tactics-summary">
           ⚡ 주간 액션 (Tactics)
-          ${tStats ? `<span style="font-weight:400; color:var(--muted);"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
-          ${curWk ? `<span style="font-weight:400; color:var(--accent); margin-left:8px;"> · 현재 W${curWk}</span>` : ''}
-          ${!p.start_date ? `<span style="font-weight:400; color:var(--bad); margin-left:8px;"> · 시작일을 설정하면 주차별 날짜와 현재 주 자동 표시</span>` : ''}
-        </div>
+          ${tStats ? `<span class="tactics-stat"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
+          ${curWk ? `<span class="tactics-current"> · 현재 W${curWk}</span>` : ''}
+          ${!p.start_date ? `<span class="tactics-warn"> · 시작일을 설정하면 주차별 날짜·현재 주 자동 표시</span>` : ''}
+        </summary>
         <div class="weeks-grid" id="modalWeeks">
           ${[0,1,2,3,4,5,6,7,8,9,10,11,12].map(renderWeekBox).join("")}
         </div>
-      </div>
+      </details>
     `;
 
   document.getElementById("modalBody").innerHTML = `
