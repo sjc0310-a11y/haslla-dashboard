@@ -1578,6 +1578,7 @@ function wireTopicCards(doc) {
 function wireGeneralSupports(doc) {
   if (READONLY) return;
   const $u = document.getElementById(`generalSupport-${doc}`);
+  if (!$u) return;   // 일반 Support 영역이 textarea로 통합되어 사라진 경우
   $u.querySelectorAll("[data-act]").forEach(el => {
     const evt = (el.tagName === "INPUT" && el.type === "text") ? "input"
               : (el.tagName === "INPUT" && el.type === "checkbox") ? "change"
@@ -1619,12 +1620,7 @@ function handleSectionAction(doc, act) {
     markDirty();
     renderMeeting(doc); renderFollowup(doc); renderHistory(doc);
   } else if (act === "add-general-support") {
-    const m = currentMeeting(doc);
-    m.support = m.support || [];
-    m.support.push(newSupport(null));
-    markDirty();
-    document.getElementById(`generalSupport-${doc}`).innerHTML = renderGeneralSupports(doc, m);
-    wireGeneralSupports(doc);
+    // 일반 Support 영역이 textarea로 통합되어 사용 안 함 — noop
   } else if (act === "add-project") {
     const projects = getProjects(doc);
     const p = newProject();
