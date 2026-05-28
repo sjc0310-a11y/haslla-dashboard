@@ -617,6 +617,21 @@ function priorityClass(p) {
 function getProjects(doc) { return STATE.projects[doc] || (STATE.projects[doc] = []); }
 function getNotes(doc)    { return STATE.notes[doc]    || (STATE.notes[doc]    = []); }
 function getProject(doc, pid) { return getProjects(doc).find(p => p.id === pid); }
+const REFLECT_TEMPLATE = "✅ 잘한 점\n\n\n🔶 아쉬웠던 점\n\n\n📚 학습한 것\n";
+const NEXT_TEMPLATE    = "💼 운영 시도\n\n\n🌱 성장 시도\n\n\n🔭 중장기 방향\n";
+const SUPPORT_TEMPLATE = "🆘 도움 요청\n\n\n🎯 결정 부탁\n\n\n🧭 방향 합의\n";
+
+// 빈 면담에 디폴트 포맷 자동 채움 — 화면 그릴 때마다 호출
+function ensureMeetingTemplate(m) {
+  if (!m || READONLY) return m;
+  let changed = false;
+  if (!m.reflect)      { m.reflect = REFLECT_TEMPLATE; changed = true; }
+  if (!m.next)         { m.next = NEXT_TEMPLATE; changed = true; }
+  if (!m.support_text) { m.support_text = SUPPORT_TEMPLATE; changed = true; }
+  if (changed) markDirty();
+  return m;
+}
+
 function currentMeeting(doc) {
   const notes = getNotes(doc);
   if (notes.length === 0) {
@@ -626,11 +641,8 @@ function currentMeeting(doc) {
   let idx = currentIdx[doc];
   if (idx == null || idx >= notes.length) idx = notes.length - 1;
   currentIdx[doc] = idx;
-  return notes[idx];
+  return ensureMeetingTemplate(notes[idx]);
 }
-const REFLECT_TEMPLATE = "✅ 잘한 점\n\n\n🔶 아쉬웠던 점\n\n\n📚 학습한 것\n";
-const NEXT_TEMPLATE    = "💼 운영 시도\n\n\n🌱 성장 시도\n\n\n🔭 중장기 방향\n";
-const SUPPORT_TEMPLATE = "🆘 도움 요청\n\n\n🎯 결정 부탁\n\n\n🧭 방향 합의\n";
 
 function newMeeting() {
   return {
