@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import importlib
 import json
 import os
 import shutil
@@ -67,10 +66,16 @@ COOKIE_NAME = "haslla_1on1_auth"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365   # 1년
 
 sys.path.insert(0, str(ROOT))
-import generate_1on1  # noqa: E402
 
 def rebuild():
-    generate_1on1.main()
+    """항상 서브프로세스로 generate_1on1.py 를 실행해 최신 파일을 읽도록 보장."""
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "generate_1on1.py")],
+        capture_output=True, text=True, cwd=str(ROOT),
+        timeout=60, env={**os.environ},
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "generate 실패")
 
 
 def _get_password() -> str:
@@ -846,14 +851,8 @@ class Handler(BaseHTTPRequestHandler):
                 if pull.returncode != 0:
                     raise RuntimeError(f"git pull 실패: {pull.stderr.strip() or pull.stdout.strip()}")
 
-                # 2) 모듈 재로드 (sys.modules 캐시 초기화 후 reload)
-                if "templates_1on1" in sys.modules:
-                    importlib.reload(sys.modules["templates_1on1"])
-                if "generate_1on1" in sys.modules:
-                    importlib.reload(sys.modules["generate_1on1"])
-
-                # 3) 빌드
-                generate_1on1.main()
+                # 2) 빌드 — 서브프로세스로 최신 파일 읽어 재생성
+                rebuild()
 
                 # 4) 커밋 해시
                 rev = subprocess.run(
