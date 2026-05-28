@@ -350,38 +350,27 @@ textarea.agenda:focus { outline:1px solid var(--accent); border-color:var(--acce
 .checklist-tactics li.checklist-item.done .ck-text { text-decoration:line-through; opacity:0.55; }
 .ck-text { flex:1; line-height:1.4; }
 
-/* 측정 지표 토글 섹션 */
-.metrics-section { background:var(--panel2); border:1px solid var(--border);
-                    border-radius:8px; padding:8px 12px; flex:1; }
-.metrics-summary { cursor:pointer; list-style:none; outline:none;
-                    font-size:15px; font-weight:700; color:var(--text);
-                    padding:4px 0; user-select:none;
-                    display:flex; align-items:center; gap:6px; }
-.metrics-summary::-webkit-details-marker { display:none; }
-.metrics-summary::before { content:"▶"; font-size:9px; transition:transform .2s;
-                            color:var(--accent); }
-.metrics-section[open] > .metrics-summary::before { transform:rotate(90deg); }
-.metrics-summary:hover { color:var(--text); }
-.metrics-count { color:var(--muted); font-weight:400; font-size:11px; }
-.metrics-section[open] > .metrics-summary { padding-bottom:8px;
-                                             border-bottom:1px dashed var(--border);
-                                             margin-bottom:6px; }
-
-/* 주간 액션 외부 토글 (모달) */
-.tactics-section { background:transparent; border:none; padding:0; }
-.tactics-summary { cursor:pointer; list-style:none; outline:none; user-select:none;
-                    font-size:15px; font-weight:700; color:var(--text);
-                    padding:8px 0; margin-bottom:10px;
-                    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-                    border-bottom:1px solid var(--border); }
-.tactics-summary::-webkit-details-marker { display:none; }
-.tactics-summary::before { content:"▶"; font-size:10px; transition:transform .2s;
-                            color:var(--accent); }
-.tactics-section[open] > .tactics-summary::before { transform:rotate(90deg); }
-.tactics-summary:hover { color:var(--accent); }
-.tactics-stat { font-weight:500; color:var(--muted); font-size:12px; }
-.tactics-current { font-weight:600; color:var(--accent); font-size:12px; }
-.tactics-warn { font-weight:400; color:var(--bad); font-size:11px; margin-left:8px; }
+/* 12주 계획 3섹션 통일 (목표·지표·주간 액션) */
+.plan-section { background:var(--panel2); border:1px solid var(--border);
+                 border-radius:8px; padding:10px 14px; margin-bottom:12px; }
+.plan-summary { cursor:pointer; list-style:none; outline:none; user-select:none;
+                 font-size:15px; font-weight:700; color:var(--text);
+                 padding:4px 0; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.plan-summary::-webkit-details-marker { display:none; }
+.plan-summary::before { content:"▶"; font-size:10px; transition:transform .2s;
+                         color:var(--accent); }
+.plan-section[open] > .plan-summary::before { transform:rotate(90deg); }
+.plan-section[open] > .plan-summary { padding-bottom:8px;
+                                        border-bottom:1px dashed var(--border);
+                                        margin-bottom:8px; }
+.plan-summary:hover { color:var(--accent); }
+.plan-count { color:var(--muted); font-weight:500; font-size:12px; }
+.plan-accent { color:var(--accent); font-weight:600; font-size:12px; }
+.plan-warn { color:var(--bad); font-weight:400; font-size:11px; margin-left:8px; }
+.plan-input { width:100%; background:var(--panel3); color:var(--text);
+               border:1px solid var(--border); border-radius:4px;
+               padding:6px 10px; font-size:13px; }
+.plan-input:focus { outline:1px solid var(--accent); border-color:var(--accent); }
 
 /* 주차 박스 그리드 (모달) */
 .weeks-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
@@ -2380,37 +2369,35 @@ function openProjectModal(doc, pid) {
           </li>`).join("")}</ul>` : ''}
     `
     : `
-      <div class="goal-metric">
-        <label class="goal-row">
-          <span class="goal-label">🎯 12주 목표</span>
-          <input type="text" id="modalGoal" value="${escapeHtml(p.goal||"")}"
-            placeholder="이번 12주 동안 도달할 지점 (예: NPS 7.8 → 8.5, 부원장 1명 채용)">
-        </label>
-        <details class="metrics-section" ${(p.metrics||[]).length > 0 ? 'open' : ''}>
-          <summary class="metrics-summary">
-            📐 측정 지표 <span class="metrics-count">(${(p.metrics||[]).length})</span>
-          </summary>
-          <div class="metric-add">
-            <input type="text" id="modalNewMetricText" placeholder="새 측정 지표 (Enter)">
-            <button id="modalAddMetBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
-          </div>
-          <ul class="metrics-list" id="modalMetrics">
-            ${(p.metrics||[]).length === 0
-              ? `<li class="meta" style="border:none; padding:4px 0;">측정 지표를 한 줄씩 추가하세요 (여러 개 가능)</li>`
-              : p.metrics.map(m => `
-                <li data-mid="${m.id}" class="metric-item">
-                  <span class="metric-text" data-act="m-met-text" contenteditable="true" spellcheck="false">${escapeHtml(m.text||"")}</span>
-                  <button class="del-mini" data-act="m-met-del">✕</button>
-                </li>`).join("")}
-          </ul>
-        </details>
-      </div>
-      <details class="tactics-section" open style="margin-top:14px;">
-        <summary class="tactics-summary">
+      <details class="plan-section" open>
+        <summary class="plan-summary">🎯 12주 목표</summary>
+        <input type="text" id="modalGoal" value="${escapeHtml(p.goal||"")}" class="plan-input"
+          placeholder="이번 12주 동안 도달할 지점 (예: NPS 7.8 → 8.5, 부원장 1명 채용)">
+      </details>
+      <details class="plan-section" ${(p.metrics||[]).length > 0 ? 'open' : ''}>
+        <summary class="plan-summary">
+          📐 측정 지표 <span class="plan-count">(${(p.metrics||[]).length})</span>
+        </summary>
+        <div class="metric-add">
+          <input type="text" id="modalNewMetricText" placeholder="새 측정 지표 (Enter)">
+          <button id="modalAddMetBtn" class="add-btn" style="margin-top:0;">+ 추가</button>
+        </div>
+        <ul class="metrics-list" id="modalMetrics">
+          ${(p.metrics||[]).length === 0
+            ? `<li class="meta" style="border:none; padding:4px 0;">측정 지표를 한 줄씩 추가하세요 (여러 개 가능)</li>`
+            : p.metrics.map(m => `
+              <li data-mid="${m.id}" class="metric-item">
+                <span class="metric-text" data-act="m-met-text" contenteditable="true" spellcheck="false">${escapeHtml(m.text||"")}</span>
+                <button class="del-mini" data-act="m-met-del">✕</button>
+              </li>`).join("")}
+        </ul>
+      </details>
+      <details class="plan-section" open>
+        <summary class="plan-summary">
           ⚡ 주간 액션 (Tactics)
-          ${tStats ? `<span class="tactics-stat"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
-          ${curWk ? `<span class="tactics-current"> · 현재 W${curWk}</span>` : ''}
-          ${!p.start_date ? `<span class="tactics-warn"> · 시작일을 설정하면 주차별 날짜·현재 주 자동 표시</span>` : ''}
+          ${tStats ? `<span class="plan-count"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
+          ${curWk ? `<span class="plan-accent"> · 현재 W${curWk}</span>` : ''}
+          ${!p.start_date ? `<span class="plan-warn"> · 시작일을 설정하면 주차별 날짜·현재 주 자동 표시</span>` : ''}
         </summary>
         <div class="weeks-grid" id="modalWeeks">
           ${[0,1,2,3,4,5,6,7,8,9,10,11,12].map(renderWeekBox).join("")}
