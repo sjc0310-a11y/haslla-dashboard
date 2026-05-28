@@ -554,6 +554,10 @@ function currentMeeting(doc) {
   currentIdx[doc] = idx;
   return notes[idx];
 }
+const REFLECT_TEMPLATE = "✅ 잘한 점\n\n\n🔶 아쉬웠던 점\n\n\n📚 학습한 것\n";
+const NEXT_TEMPLATE    = "💼 운영 시도\n\n\n🌱 성장 시도\n\n\n🔭 중장기 방향\n";
+const SUPPORT_TEMPLATE = "🆘 도움 요청\n\n\n🎯 결정 부탁\n\n\n🧭 방향 합의\n";
+
 function newMeeting() {
   return {
     id: genId("m"),
@@ -561,8 +565,11 @@ function newMeeting() {
     month: currentMonth(),
     done: false,
     mood: "",
-    work:   { good: "", hard: "", next: "" },        // 이번 달 운영 회고
-    career: { learn: "", grow: "", direction: "" },  // 이번 달 성장 대화
+    reflect: REFLECT_TEMPLATE,        // 이번 달 어땠어? (잘한 점·아쉬운 점·학습)
+    next:    NEXT_TEMPLATE,           // 다음 달 뭐 해볼까? (운영 시도·성장 시도·방향)
+    support_text: SUPPORT_TEMPLATE,   // Support란 (도움 요청·결정 부탁·방향 합의)
+    work:   { good: "", hard: "", next: "" },        // (구버전 호환용 보존)
+    career: { learn: "", grow: "", direction: "" },  // (구버전 호환용 보존)
     topic_projects: [],
     support: [],
   };
@@ -694,28 +701,49 @@ function migrateNote(n) {
   if (!n.mood) n.mood = "";
   if (!n.topic_projects) n.topic_projects = [];
   (n.support||[]).forEach(s => { if(!s.id) s.id = genId("s"); if(s.project_id===undefined) s.project_id = null; });
-  // 신규 3 질문 모드: reflect(이번 달 어땠어), next(다음 달 뭐 해볼까)
-  // 옛 work/career 6칸 데이터를 자동 통합
-  if (typeof n.reflect !== "string") n.reflect = "";
-  if (typeof n.next    !== "string") n.next    = "";
+  // 신규 3 질문 모드: reflect / next / support_text
+  if (typeof n.reflect      !== "string") n.reflect      = "";
+  if (typeof n.next         !== "string") n.next         = "";
+  if (typeof n.support_text !== "string") n.support_text = "";
+  // 옛 work/career 6칸 데이터를 reflect/next 로 자동 통합
   if (!n.reflect && !n.next) {
     const rParts = [], nParts = [];
     const w = n.work;
     if (w && typeof w === "object") {
-      if (w.good) rParts.push("✅ 잘된 것\n" + w.good);
-      if (w.hard) rParts.push("🔶 어려웠던 것\n" + w.hard);
+      if (w.good) rParts.push("✅ 잘한 점\n" + w.good);
+      if (w.hard) rParts.push("🔶 아쉬웠던 점\n" + w.hard);
       if (w.next) nParts.push("💼 운영 시도\n" + w.next);
     } else if (typeof w === "string" && w) rParts.push(w);
     const c = n.career;
     if (c && typeof c === "object") {
-      if (c.learn)     rParts.push("📚 학습·관찰\n" + c.learn);
+      if (c.learn)     rParts.push("📚 학습한 것\n" + c.learn);
       if (c.grow)      nParts.push("🌱 성장 시도\n" + c.grow);
       if (c.direction) rParts.push("🔭 중장기 방향\n" + c.direction);
     } else if (typeof c === "string" && c) rParts.push(c);
-    n.reflect = rParts.join("\n\n");
-    n.next    = nParts.join("\n\n");
+    if (rParts.length) n.reflect = rParts.join("\n\n");
+    if (nParts.length) n.next    = nParts.join("\n\n");
   }
-  // 옛 work/career 필드는 보존 (롤백 대비). 화면은 reflect/next만 사용.
+  // 빈 칸이면 기본 포맷 자동 채움
+  if (!n.reflect) n.reflect = REFLECT_TEMPLATE;
+  if (!n.next)    n.next    = NEXT_TEMPLATE;
+  // 일반 Support 항목을 텍스트로 흡수 (project_id null 인 것만)
+  if (!n.support_text) {
+    const supItems = (n.support||[]).filter(s => s.project_id === null || s.project_id === undefined);
+    if (supItems.length > 0) {
+      const typeLabel = { "Help":"🆘 도움 요청", "Decision":"🎯 결정 부탁", "Alignment":"🧭 방향 합의" };
+      const parts = [];
+      ["Help","Decision","Alignment"].forEach(typ => {
+        const items = supItems.filter(s => s.type === typ);
+        if (items.length) parts.push(typeLabel[typ] + "\n" + items.map(s => s.need||"").join("\n"));
+      });
+      n.support_text = parts.length ? parts.join("\n\n") : SUPPORT_TEMPLATE;
+      // 일반 Support 흡수 후 m.support 에서 제거 (프로젝트 묶인 것만 보존)
+      n.support = (n.support||[]).filter(s => s.project_id);
+    } else {
+      n.support_text = SUPPORT_TEMPLATE;
+    }
+  }
+  // 옛 work/career 필드는 보존 (롤백 대비)
   return n;
 }
 // 면담 내용 있는지·총 글자수
@@ -1181,9 +1209,10 @@ function renderMeeting(doc) {
       </div>
       <div class="agenda-block">
         <div class="agenda-label">🤝 내가 뭐 도와줄까?
-          <span class="hint">원장에게 요청할 것 — 처리되면 ✅ 체크</span></div>
-        <ul class="support-list" id="generalSupport-${doc}">${renderGeneralSupports(doc, m)}</ul>
-        ${READONLY ? '' : '<button class="add-btn" data-action="add-general-support">+ 요청 추가</button>'}
+          <span class="hint">도움 요청 · 결정 부탁 · 방향 합의 — 자유롭게</span></div>
+        ${READONLY
+          ? `<div class="agenda-readonly">${escapeHtml(m.support_text||"(작성 안 됨)")}</div>`
+          : `<textarea class="agenda agenda-big" id="supportText-${doc}" placeholder="🆘 도움 요청 / 🎯 결정 부탁 / 🧭 방향 합의 — 줄로 구분해서 자유롭게...">${escapeHtml(m.support_text||"")}</textarea>`}
       </div>
     </div>
   `;
@@ -1208,6 +1237,8 @@ function renderMeeting(doc) {
     if ($reflect) $reflect.addEventListener("input", e => { m.reflect = e.target.value; markDirty(); });
     const $next = document.getElementById(`next-${doc}`);
     if ($next) $next.addEventListener("input", e => { m.next = e.target.value; markDirty(); });
+    const $supText = document.getElementById(`supportText-${doc}`);
+    if ($supText) $supText.addEventListener("input", e => { m.support_text = e.target.value; markDirty(); });
 
     // 🎯 이번 회차 점검 위젯 — 체크박스 토글 + 프로젝트명 클릭(모달)
     const $cl = document.getElementById(`meetingChecklist-${doc}`);

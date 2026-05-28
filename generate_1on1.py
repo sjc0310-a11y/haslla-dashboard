@@ -163,6 +163,10 @@ def _new_id(prefix):
     return f"{prefix}_{secrets.token_hex(4)}"
 
 
+REFLECT_TEMPLATE = "✅ 잘한 점\n\n\n🔶 아쉬웠던 점\n\n\n📚 학습한 것\n"
+NEXT_TEMPLATE    = "💼 운영 시도\n\n\n🌱 성장 시도\n\n\n🔭 중장기 방향\n"
+SUPPORT_TEMPLATE = "🆘 도움 요청\n\n\n🎯 결정 부탁\n\n\n🧭 방향 합의\n"
+
 def _migrate_note(n):
     n.setdefault("id", _new_id("m"))
     n.setdefault("mood", "")
@@ -170,30 +174,49 @@ def _migrate_note(n):
     for s in n.get("support", []):
         s.setdefault("id", _new_id("s"))
         s.setdefault("project_id", None)
-    # 신규 3 질문 모드: reflect(이번 달 어땠어), next(다음 달 뭐 해볼까)
+    # 신규 3 질문 모드: reflect / next / support_text
     # 기존 work/career 6칸 데이터가 있으면 자동 통합
     n.setdefault("reflect", "")
     n.setdefault("next", "")
+    n.setdefault("support_text", "")
     if not n["reflect"] and not n["next"]:
         reflect_parts = []
         next_parts    = []
         w = n.get("work")
         if isinstance(w, dict):
-            if w.get("good"): reflect_parts.append("✅ 잘된 것\n" + w["good"])
-            if w.get("hard"): reflect_parts.append("🔶 어려웠던 것\n" + w["hard"])
+            if w.get("good"): reflect_parts.append("✅ 잘한 점\n" + w["good"])
+            if w.get("hard"): reflect_parts.append("🔶 아쉬웠던 점\n" + w["hard"])
             if w.get("next"): next_parts.append("💼 운영 시도\n" + w["next"])
         elif isinstance(w, str) and w:
             reflect_parts.append(w)
         c = n.get("career")
         if isinstance(c, dict):
-            if c.get("learn"):     reflect_parts.append("📚 학습·관찰\n" + c["learn"])
+            if c.get("learn"):     reflect_parts.append("📚 학습한 것\n" + c["learn"])
             if c.get("grow"):      next_parts.append("🌱 성장 시도\n" + c["grow"])
             if c.get("direction"): reflect_parts.append("🔭 중장기 방향\n" + c["direction"])
         elif isinstance(c, str) and c:
             reflect_parts.append(c)
-        n["reflect"] = "\n\n".join(reflect_parts)
-        n["next"]    = "\n\n".join(next_parts)
-    # 옛 work/career는 보존 (롤백 대비). 화면 표시는 reflect/next 만 사용.
+        if reflect_parts: n["reflect"] = "\n\n".join(reflect_parts)
+        if next_parts:    n["next"]    = "\n\n".join(next_parts)
+    # 빈 칸이면 기본 포맷 자동 채움 (새 면담 또는 마이그레이션 후 빈 경우)
+    if not n["reflect"]:      n["reflect"]      = REFLECT_TEMPLATE
+    if not n["next"]:         n["next"]         = NEXT_TEMPLATE
+    if not n["support_text"]:
+        # 기존 일반 Support 항목(project_id null)을 텍스트로 자동 흡수
+        sup_items = [s for s in n.get("support", []) if s.get("project_id") is None]
+        if sup_items:
+            parts = []
+            type_emoji = {"Help":"🆘 도움 요청", "Decision":"🎯 결정 부탁", "Alignment":"🧭 방향 합의"}
+            for typ in ("Help", "Decision", "Alignment"):
+                items = [s for s in sup_items if s.get("type") == typ]
+                if items:
+                    parts.append(type_emoji[typ] + "\n" + "\n".join(s.get("need","") for s in items))
+            n["support_text"] = "\n\n".join(parts) if parts else SUPPORT_TEMPLATE
+            # 일반 Support 흡수 후 m.support 에서 제거 (프로젝트 묶인 것은 보존)
+            n["support"] = [s for s in n.get("support", []) if s.get("project_id") is not None]
+        else:
+            n["support_text"] = SUPPORT_TEMPLATE
+    # 옛 work/career는 보존 (롤백 대비). 화면 표시는 reflect/next/support_text 만 사용.
     return n
 
 
