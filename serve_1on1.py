@@ -71,8 +71,10 @@ def rebuild():
     """항상 서브프로세스로 generate_1on1.py 를 실행해 최신 파일을 읽도록 보장."""
     result = subprocess.run(
         [sys.executable, str(ROOT / "generate_1on1.py")],
-        capture_output=True, text=True, cwd=str(ROOT),
-        timeout=60, env={**os.environ},
+        capture_output=True, text=True,
+        encoding="utf-8", errors="replace",   # generate_1on1.py 가 UTF-8 출력 — cp949 충돌 방지
+        cwd=str(ROOT),
+        timeout=60, env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "generate 실패")
