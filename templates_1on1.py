@@ -2394,7 +2394,7 @@ function openProjectModal(doc, pid) {
       </details>
       <details class="plan-section" open>
         <summary class="plan-summary">
-          ⚡ 주간 액션 (Tactics)
+          ⚡ 주간 액션
           ${tStats ? `<span class="plan-count"> · ${tStats.done}/${tStats.total} · ${tStats.pct}%</span>` : ''}
           ${curWk ? `<span class="plan-accent"> · 현재 W${curWk}</span>` : ''}
           ${!p.start_date ? `<span class="plan-warn"> · 시작일을 설정하면 주차별 날짜·현재 주 자동 표시</span>` : ''}
