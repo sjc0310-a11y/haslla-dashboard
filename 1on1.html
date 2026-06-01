@@ -617,17 +617,20 @@ function priorityClass(p) {
 function getProjects(doc) { return STATE.projects[doc] || (STATE.projects[doc] = []); }
 function getNotes(doc)    { return STATE.notes[doc]    || (STATE.notes[doc]    = []); }
 function getProject(doc, pid) { return getProjects(doc).find(p => p.id === pid); }
+// 옛 자동 채움 템플릿 — placeholder 안내로 이동 (받아쓰기 헤더에 한글이 흘러가지 않도록 textarea VALUE 는 비움)
 const REFLECT_TEMPLATE = "✅ 잘한 점\n\n\n🔶 아쉬웠던 점\n\n\n📚 학습한 것\n";
 const NEXT_TEMPLATE    = "💼 운영 시도\n\n\n🌱 성장 시도\n\n\n🔭 중장기 방향\n";
 const SUPPORT_TEMPLATE = "🆘 도움 요청\n\n\n🎯 결정 부탁\n\n\n🧭 방향 합의\n";
+const REFLECT_PLACEHOLDER = "✅ 잘한 점\n\n🔶 아쉬웠던 점\n\n📚 학습한 것";
+const NEXT_PLACEHOLDER    = "💼 운영 시도\n\n🌱 성장 시도\n\n🔭 중장기 방향";
 
-// 빈 면담에 디폴트 포맷 자동 채움 — 화면 그릴 때마다 호출
+// 기존 자동 채움 잔존값(템플릿만 들어있고 사용자 입력 없음) 정리 — 받아쓰기 동작용
 function ensureMeetingTemplate(m) {
   if (!m || READONLY) return m;
   let changed = false;
-  if (!m.reflect)      { m.reflect = REFLECT_TEMPLATE; changed = true; }
-  if (!m.next)         { m.next = NEXT_TEMPLATE; changed = true; }
-  if (!m.support_text) { m.support_text = SUPPORT_TEMPLATE; changed = true; }
+  if (m.reflect      && m.reflect.trim()      === REFLECT_TEMPLATE.trim()) { m.reflect = "";      changed = true; }
+  if (m.next         && m.next.trim()         === NEXT_TEMPLATE.trim())    { m.next = "";         changed = true; }
+  if (m.support_text && m.support_text.trim() === SUPPORT_TEMPLATE.trim()) { m.support_text = ""; changed = true; }
   if (changed) markDirty();
   return m;
 }
@@ -651,9 +654,9 @@ function newMeeting() {
     month: currentMonth(),
     done: false,
     mood: "",
-    reflect: REFLECT_TEMPLATE,        // 이번 달 어땠어? (잘한 점·아쉬운 점·학습)
-    next:    NEXT_TEMPLATE,           // 다음 달 뭐 해볼까? (운영 시도·성장 시도·방향)
-    support_text: SUPPORT_TEMPLATE,   // Support란 (도움 요청·결정 부탁·방향 합의)
+    reflect: "",        // 이번 달 어땠어? — 구조 안내는 placeholder 로 표시
+    next:    "",        // 다음 달 뭐 해볼까?
+    support_text: "",   // Support란
     work:   { good: "", hard: "", next: "" },        // (구버전 호환용 보존)
     career: { learn: "", grow: "", direction: "" },  // (구버전 호환용 보존)
     topic_projects: [],
@@ -1326,14 +1329,14 @@ function renderMeeting(doc) {
           <span class="hint">잘된 것·어려운 것·운영·성장 — 떠오르는 대로 자유롭게</span></div>
         ${READONLY
           ? `<div class="agenda-readonly">${escapeHtml(m.reflect||"(작성 안 됨)")}</div>`
-          : `<textarea class="agenda agenda-big" id="reflect-${doc}" placeholder="이번 달 굴러간 일·막힌 일·새로 배운 것·인상적이었던 환자 케이스 등 자유롭게...">${escapeHtml(m.reflect||"")}</textarea>`}
+          : `<textarea class="agenda agenda-big" id="reflect-${doc}" placeholder="${REFLECT_PLACEHOLDER}">${escapeHtml(m.reflect||"")}</textarea>`}
       </div>
       <div class="agenda-block">
         <div class="agenda-label">🚀 다음 달 뭐 해볼까?
           <span class="hint">이번에 시도할 작은 실험 1~2개</span></div>
         ${READONLY
           ? `<div class="agenda-readonly">${escapeHtml(m.next||"(작성 안 됨)")}</div>`
-          : `<textarea class="agenda agenda-big" id="next-${doc}" placeholder="다음 한 달 동안 시도해볼 작은 실험·개선·학습...">${escapeHtml(m.next||"")}</textarea>`}
+          : `<textarea class="agenda agenda-big" id="next-${doc}" placeholder="${NEXT_PLACEHOLDER}">${escapeHtml(m.next||"")}</textarea>`}
       </div>
       <!-- 일반 Support 영역 제거 — 모든 Support 는 프로젝트 카드 모달에서 관리.
            프로젝트 무관 단발 부탁은 '다음 달 뭐 해볼까' 자유 텍스트에 한 줄로. -->
@@ -2856,15 +2859,16 @@ function renderFollowup(doc) {
   const notes = getNotes(doc);
   const $sec = document.getElementById(`followup-${doc}`);
   const idx = currentIdx[doc] ?? (notes.length-1);
-  const prev = idx > 0 ? notes[idx-1] : null;
   const items = [];
-  if (prev) {
-    (prev.support||[]).forEach(s => {
-      if (!s.reviewed) items.push({s, meeting: prev});
+  for (let i = 0; i < idx; i++) {
+    const m = notes[i];
+    (m.support||[]).forEach(s => {
+      if (!s.reviewed) items.push({s, meeting: m});
     });
   }
+  items.sort((a, b) => (b.meeting.date||"").localeCompare(a.meeting.date||""));
   $sec.innerHTML = `
-    <h2>↩️ 지난 면담 Follow-up <span class="badge">직전 1회 미해결</span></h2>
+    <h2>↩️ 지난 면담 Follow-up <span class="badge">전체 미해결 ${items.length}개</span></h2>
     ${items.length === 0
       ? `<div class="meta" style="padding:8px;">지난 면담 메모가 없거나 모두 완료됨.</div>`
       : `<ul class="item-list">${items.map(({s, meeting}) => {
