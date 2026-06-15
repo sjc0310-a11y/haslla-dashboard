@@ -761,8 +761,22 @@ function checkLocalBackup() {
     }
   } catch(e) {}
 }
+// 강제 저장 — sendBeacon (페이지 종료/탭 숨김 시점에 동기 전송)
+function flushSaveBeacon() {
+  if (READONLY || !saveDirty || !STATE) return;
+  try {
+    const blob = new Blob([JSON.stringify(STATE)], {type:"application/json"});
+    navigator.sendBeacon("/save", blob);
+  } catch (_) {}
+}
 window.addEventListener("beforeunload", (e) => {
-  if (!READONLY && saveDirty) { e.preventDefault(); e.returnValue = ""; }
+  if (!READONLY && saveDirty) {
+    flushSaveBeacon();
+    e.preventDefault(); e.returnValue = "";
+  }
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && saveDirty) flushSaveBeacon();
 });
 
 // ───── 부트 ─────
