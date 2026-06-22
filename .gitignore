@@ -17,3 +17,7 @@ __pycache__/
 # 임시 파일
 *.tmp
 *.log
+
+# OAuth·비밀 (절대 push 금지)
+token.json
+client_secret*.json

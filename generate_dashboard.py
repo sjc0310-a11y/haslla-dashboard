@@ -1671,6 +1671,42 @@ if (allWeeks.length > 0) {{
 
 
 # ─── 메인 ─────────────────────────────────────────────────
+def inject_okr(html):
+    """collect_kpi.py가 만든 data/kpi_auto.json을 읽어 대시보드 맨 위('내 현황' 앞)에
+    '12주 OKR · 전사' 섹션을 삽입. build_html은 건드리지 않고 후처리(기존 대시보드 유지)."""
+    from pathlib import Path as _P
+    import json as _j
+    kp = _P(__file__).resolve().parent / "data" / "kpi_auto.json"
+    if not kp.exists():
+        return html
+    try:
+        k = _j.loads(kp.read_text(encoding="utf-8"))
+    except Exception:
+        return html
+    pm = k.get("pyeong_mtd", {}); bu = k.get("buroyul_mtd", {}); jn = k.get("jabo_new_mtd", {})
+    cv = k.get("inpat_conversion", {}); g8 = k.get("jabo_visits_per_patient", {}); rv = k.get("revenue_mtd", {})
+    upd = k.get("updated", "")
+    def card(lbl, cur, tgt, c="#2c8c69"):
+        return ('<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">'
+                f'<div style="font-size:0.7rem;color:#94a3b8">{lbl}</div>'
+                f'<div style="font-size:1.15rem;font-weight:700;color:{c}">{cur}</div>'
+                f'<div style="font-size:0.68rem;color:#94a3b8">목표 {tgt}</div></div>')
+    ge8 = g8.get("ge8_ratio"); ge8s = f"{ge8:.0f}%" if isinstance(ge8, (int, float)) else "-"
+    cards = "".join([
+        card("평환(일평균)", f'{pm.get("avg","-")}명', "90명"),
+        card("예약 부도율", f'{bu.get("rate","-")}%', "15%↓", "#c0703a"),
+        card("자보 신환(월)", f'{jn.get("this","-")}건', f'{jn.get("prev","-")}건(전월)', "#c0703a"),
+        card("자보 8회+", ge8s, "50%", "#c0703a"),
+        card("입원→외래전환", f'{cv.get("rate","-")}%', "55%", "#c0703a"),
+        card("자보 월매출", f'{rv.get("jabo_man","-")}만', "6,700만", "#c0703a"),
+    ])
+    okr = ('<div class="section-title" style="margin-top:4px">🎯 12주 OKR · 전사 '
+           f'<span style="font-size:0.62rem;color:#94a3b8;text-transform:none">{upd} 기준</span></div>'
+           '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:18px">'
+           f'{cards}</div>')
+    marker = '<div class="section-title" style="margin-top:4px">내 현황</div>'
+    return html.replace(marker, okr + marker, 1) if marker in html else html
+
 def main():
     print("데이터 로딩 중...")
     df_receipt  = load_receipt()
@@ -1733,6 +1769,7 @@ def main():
 
     print("HTML 생성 중...")
     html = build_html(data)
+    html = inject_okr(html)   # 맨 위에 12주 OKR 전사 섹션 삽입
     OUT_HTML.write_text(html, encoding="utf-8")
     print(f"완료: {OUT_HTML}")
 
